@@ -705,16 +705,17 @@ async function loadSkin(uuid, name) {
     }
     try {
         const resp = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + uuid);
-        if (!resp.ok) return;
+        if (!resp.ok) { console.log('[FullPlay] Skin API returned ' + resp.status + ' for ' + name); return; }
         const data = await resp.json();
-        const prop = data.properties && data.properties.find(p => p.name === 'textures');
-        if (!prop) return;
+        const prop = data.properties && data.properties.find(function(p) { return p.name === 'textures'; });
+        if (!prop) { console.log('[FullPlay] No textures property for ' + name); return; }
         const decoded = JSON.parse(atob(prop.value));
         const skinUrl = decoded.textures && decoded.textures.SKIN && decoded.textures.SKIN.url;
-        if (!skinUrl) return;
-        const tex = new THREE.TextureLoader().load(skinUrl);
+        if (!skinUrl) { console.log('[FullPlay] No skin URL for ' + name); return; }
+        const httpsUrl = skinUrl.replace('http://', 'https://');
+        const tex = new THREE.TextureLoader().load(httpsUrl);
         skinTextures[uuid] = tex;
-        try { localStorage.setItem(cacheKey, skinUrl); } catch (e) {}
+        try { localStorage.setItem(cacheKey, httpsUrl); } catch (e) {}
     } catch (e) {
         console.log('[FullPlay] Skin load failed for ' + name + ': ' + e.message);
     }
