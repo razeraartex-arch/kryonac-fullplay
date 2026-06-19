@@ -278,10 +278,11 @@ function animate() {
 
 function getTokenFromHash() {
     const hash = window.location.hash;
-    if (hash && hash.length > 2 && hash.startsWith('#!')) {
-        return hash.substring(2).split('/')[0].split('?')[0];
-    }
-    return null;
+    if (!hash || hash.length < 2) return null;
+    let token = hash.substring(1);
+    if (token.startsWith('!')) token = token.substring(1);
+    token = token.split('/')[0].split('?')[0].trim();
+    return token.length > 0 ? token : null;
 }
 
 async function loadReplay() {
@@ -305,6 +306,21 @@ async function loadReplay() {
         }
 
         replayData = data;
+        console.log('[FullPlay] Data loaded:', {
+            playerName: data.playerName,
+            chunks: data.chunks ? data.chunks.length : 0,
+            frames: data.frames ? data.frames.length : 0,
+            blockChanges: data.blockChanges ? data.blockChanges.length : 0,
+            firstChunk: data.chunks && data.chunks[0] ? {
+                cx: data.chunks[0].cx,
+                cz: data.chunks[0].cz,
+                yOff: data.chunks[0].yOff,
+                yRange: data.chunks[0].yRange,
+                blocksType: data.chunks[0].blocks ? typeof data.chunks[0].blocks[0] : 'none',
+                blocksLength: data.chunks[0].blocks ? data.chunks[0].blocks.length : 0,
+                firstBlock: data.chunks[0].blocks ? data.chunks[0].blocks[0] : 'none'
+            } : 'no chunks'
+        });
         onReplayLoaded();
     } catch (e) {
         document.getElementById('token-error').textContent = e.message;
@@ -319,6 +335,16 @@ function onReplayLoaded() {
     document.getElementById('info-panel').style.display = '';
     document.getElementById('players-list').style.display = '';
     document.getElementById('chat-panel').style.display = '';
+
+    let debugInfo = 'Chunks: ' + (replayData.chunks ? replayData.chunks.length : 0);
+    if (replayData.chunks && replayData.chunks.length > 0) {
+        const c = replayData.chunks[0];
+        debugInfo += ' | yRange: ' + (c.yRange || 'MISSING') + ' | blocks: ' + (c.blocks ? c.blocks.length : 0);
+        if (c.blocks && c.blocks.length > 0) {
+            debugInfo += ' | type: ' + typeof c.blocks[0] + ' | sample: ' + JSON.stringify(c.blocks[0]);
+        }
+    }
+    console.log('[FullPlay] ' + debugInfo);
 
     primaryPlayer = replayData.playerUuid;
     selectedPlayer = primaryPlayer;
@@ -345,15 +371,16 @@ function buildBlockMeshes() {
         const cx = chunk.cx;
         const cz = chunk.cz;
         const yOff = chunk.yOff || 0;
+        const yr = chunk.yRange || 384;
         const blocks = chunk.blocks;
 
         if (Array.isArray(blocks)) {
-            if (blocks.length === 16 * 384 * 16) {
+            if (blocks.length === 16 * yr * 16) {
                 for (let i = 0; i < blocks.length; i++) {
                     const id = blocks[i];
                     if (id === 0) continue;
-                    const x = (i / (384 * 16)) | 0;
-                    const rem = i % (384 * 16);
+                    const x = (i / (yr * 16)) | 0;
+                    const rem = i % (yr * 16);
                     const y = (rem / 16) | 0 + yOff;
                     const z = rem % 16;
                     addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
@@ -362,8 +389,8 @@ function buildBlockMeshes() {
                 for (let i = 0; i < blocks.length; i++) {
                     const id = blocks[i];
                     if (id === 0) continue;
-                    const x = (i / (384 * 16)) | 0;
-                    const rem = i % (384 * 16);
+                    const x = (i / (yr * 16)) | 0;
+                    const rem = i % (yr * 16);
                     const y = (rem / 16) | 0 + yOff;
                     const z = rem % 16;
                     addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
@@ -376,8 +403,8 @@ function buildBlockMeshes() {
                         if (parts.length === 2) {
                             const idx = parseInt(parts[0]);
                             const id = parseInt(parts[1]);
-                            const x = (idx / (384 * 16)) | 0;
-                            const rem = idx % (384 * 16);
+                            const x = (idx / (yr * 16)) | 0;
+                            const rem = idx % (yr * 16);
                             const y = (rem / 16) | 0 + yOff;
                             const z = rem % 16;
                             addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
@@ -399,13 +426,11 @@ function addBlock(wx, wy, wz, blockId, geometries) {
     const color = MC_COLORS[blockId] || 0x808080;
     const colorKey = color.toString();
     if (!geometries[colorKey]) {
-        const geo = new THREE.BufferGeometry();
-        const mat = new THREE.MeshLambertMaterial({ color: color, transparent: blockId === 0, opacity: 0.8 });
-        geometries[colorKey] = new THREE.InstancedMesh(geo, mat, 0);
+        const geo = new THREE.BoxGeometry(1, 1, 1);
+        const mat = new THREE.MeshLambertMaterial({ color: color });
+        geometries[colorKey] = new THREE.InstancedMesh(geo, mat, 1000);
         geometries[colorKey]._count = 0;
-        geometries[colorKey].userData = { maxCount: 10000 };
-        const dummy = new THREE.Object3D();
-        geometries[colorKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        geometries[colorKey].userData = { maxCount: 1000 };
     }
     const instancedMesh = geometries[colorKey];
     if (instancedMesh._count >= instancedMesh.userData.maxCount) {
