@@ -204,21 +204,21 @@ function getHeadGeo(h) {
     if (headGeos[key]) return headGeos[key];
     var hs = 0.25;
     var faceData = [
-        {v:[[ hs, hs,-hs],[ hs, hs, hs],[ hs,-hs,-hs],[ hs,-hs, hs]],u:0,v:8,w:8,h:8},
-        {v:[[-hs, hs, hs],[-hs, hs,-hs],[-hs,-hs, hs],[-hs,-hs,-hs]],u:16,v:8,w:8,h:8},
-        {v:[[-hs, hs,-hs],[ hs, hs,-hs],[-hs, hs, hs],[ hs, hs, hs]],u:8,v:0,w:8,h:8},
-        {v:[[-hs,-hs, hs],[ hs,-hs, hs],[-hs,-hs,-hs],[ hs,-hs,-hs]],u:16,v:0,w:8,h:8},
-        {v:[[-hs, hs, hs],[ hs, hs, hs],[-hs,-hs, hs],[ hs,-hs, hs]],u:8,v:8,w:8,h:8},
-        {v:[[ hs, hs,-hs],[-hs, hs,-hs],[ hs,-hs,-hs],[-hs,-hs,-hs]],u:24,v:8,w:8,h:8}
+        {p:[[ hs, hs,-hs],[ hs, hs, hs],[ hs,-hs,-hs],[ hs,-hs, hs]],u:0,uv:8,w:8,h:8},
+        {p:[[-hs, hs, hs],[-hs, hs,-hs],[-hs,-hs, hs],[-hs,-hs,-hs]],u:16,uv:8,w:8,h:8},
+        {p:[[-hs, hs,-hs],[ hs, hs,-hs],[-hs, hs, hs],[ hs, hs, hs]],u:8,uv:0,w:8,h:8},
+        {p:[[-hs,-hs, hs],[ hs,-hs, hs],[-hs,-hs,-hs],[ hs,-hs,-hs]],u:16,uv:0,w:8,h:8},
+        {p:[[-hs, hs, hs],[ hs, hs, hs],[-hs,-hs, hs],[ hs,-hs, hs]],u:8,uv:8,w:8,h:8},
+        {p:[[ hs, hs,-hs],[-hs, hs,-hs],[ hs,-hs,-hs],[-hs,-hs,-hs]],u:24,uv:8,w:8,h:8}
     ];
     var pos = [], uvs = [], idx = [];
     var o = 0;
     for (var f = 0; f < 6; f++) {
         var face = faceData[f];
         var umin = face.u / 64, umax = (face.u + face.w) / 64;
-        var vmin = face.v / key, vmax = (face.v + face.h) / key;
+        var vmin = face.uv / key, vmax = (face.uv + face.h) / key;
         for (var vi = 0; vi < 4; vi++) {
-            pos.push(face.v[vi][0], face.v[vi][1], face.v[vi][2]);
+            pos.push(face.p[vi][0], face.p[vi][1], face.p[vi][2]);
             uvs.push(vi === 0 || vi === 2 ? umin : umax, vi < 2 ? vmin : vmax);
         }
         idx.push(o, o+1, o+2, o+1, o+3, o+2);
@@ -1052,11 +1052,14 @@ init3D();
 
 var raycaster = new THREE.Raycaster();
 var mouse = new THREE.Vector2();
+var lastMouseX = 0, lastMouseY = 0;
 var hoveredBlock = null;
 var blockTooltip = document.getElementById('block-tooltip');
 
 renderer.domElement.addEventListener('mousemove', function(event) {
     var rect = renderer.domElement.getBoundingClientRect();
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
     mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 });
@@ -1067,7 +1070,23 @@ renderer.domElement.addEventListener('click', function() {
         camera.position.set(pos.x + 5, pos.y + 3, pos.z + 5);
         controls.target.copy(pos);
         controls.update();
+        return;
     }
+    var huuid = (function() {
+        if (!playerMeshes) return null;
+        var vec = new THREE.Vector3(), best = null, bestD2 = 900;
+        for (var puuid in playerMeshes) {
+            vec.copy(playerMeshes[puuid].position);
+            vec.project(camera);
+            var sx = (vec.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
+            var sy = (-vec.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
+            var dx = lastMouseX - sx, dy = lastMouseY - sy;
+            var d2 = dx * dx + dy * dy;
+            if (d2 < bestD2) { bestD2 = d2; best = puuid; }
+        }
+        return best;
+    })();
+    if (huuid) { selectedPlayer = huuid; updatePlayersList(); }
 });
 
 function updateBlockHover() {
