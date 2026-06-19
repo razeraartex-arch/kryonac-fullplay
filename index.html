@@ -169,6 +169,8 @@ let blockMeshes = [];
 let chatMessages = [];
 let clock;
 let animationId;
+let dirLight, ambientLight;
+let skinTextures = {};
 
 const MC_COLORS = {
     0: 0x000000, 1: 0x8B4513, 2: 0x6B8E23, 3: 0x808080, 4: 0xB22222,
@@ -232,9 +234,9 @@ function init3D() {
     renderer.setPixelRatio(window.devicePixelRatio);
     document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0x606080, 1.2);
+    ambientLight = new THREE.AmbientLight(0x606080, 1.2);
     scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(100, 200, 100);
     scene.add(dirLight);
 
@@ -355,6 +357,7 @@ function onReplayLoaded() {
     document.getElementById('timeline').max = replayData.frames.length - 1;
 
     buildBlockMeshes();
+    loadAllSkins();
     updatePlayersList();
     renderFrame(0);
 }
@@ -477,6 +480,7 @@ function renderFrame(frameIdx) {
 
     const frame = replayData.frames[frameIdx];
     const tick = frame.tick;
+    updateSky(frame.wt);
 
     while (Object.keys(playerMeshes).length > 0) {
         const key = Object.keys(playerMeshes)[0];
@@ -492,13 +496,19 @@ function renderFrame(frameIdx) {
         const group = new THREE.Group();
         group.position.set(p.x, p.y + 0.9, p.z);
 
+        const skinTex = skinTextures[uuid];
+
         const bodyGeo = new THREE.BoxGeometry(0.6, 1.2, 0.3);
-        const bodyMat = new THREE.MeshLambertMaterial({ color: color });
+        const bodyMat = skinTex
+            ? new THREE.MeshLambertMaterial({ map: skinTex })
+            : new THREE.MeshLambertMaterial({ color: color });
         const body = new THREE.Mesh(bodyGeo, bodyMat);
         group.add(body);
 
         const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-        const headMat = new THREE.MeshLambertMaterial({ color: color });
+        const headMat = skinTex
+            ? new THREE.MeshLambertMaterial({ map: skinTex })
+            : new THREE.MeshLambertMaterial({ color: color });
         const head = new THREE.Mesh(headGeo, headMat);
         head.position.y = 0.85;
         group.add(head);
@@ -641,6 +651,90 @@ function resetCamera() {
         camera.position.set(pos.x + 10, pos.y + 5, pos.z + 10);
         controls.target.copy(pos);
         controls.update();
+    }
+}
+
+function updateSky(worldTime) {
+    if (worldTime === undefined) return;
+    const t = ((worldTime % 24000) + 24000) % 24000 / 24000;
+    const angle = t * Math.PI * 2;
+    const sunHeight = Math.sin(angle);
+
+    dirLight.position.set(Math.cos(angle) * 200, sunHeight * 200, 0);
+    dirLight.intensity = Math.max(0.05, sunHeight * 0.4 + 0.4);
+
+    const day = new THREE.Color(0x87CEEB);
+    const dusk = new THREE.Color(0xCC5500);
+    const night = new THREE.Color(0x050510);
+
+    let skyColor;
+    if (t < 0.03) {
+        const p = t / 0.03;
+        skyColor = night.clone().lerp(dusk, p);
+    } else if (t < 0.05) {
+        const p = (t - 0.03) / 0.02;
+        skyColor = dusk.clone().lerp(day, p);
+    } else if (t < 0.45) {
+        skyColor = day.clone();
+    } else if (t < 0.48) {
+        const p = (t - 0.45) / 0.03;
+        skyColor = day.clone().lerp(dusk, p);
+    } else if (t < 0.54) {
+        const p = (t - 0.48) / 0.06;
+        skyColor = dusk.clone().lerp(night, p);
+    } else if (t < 0.96) {
+        skyColor = night.clone();
+    } else {
+        const p = (t - 0.96) / 0.04;
+        skyColor = night.clone().lerp(dusk, p);
+    }
+
+    scene.background = skyColor;
+    if (scene.fog) scene.fog.color.copy(skyColor);
+    ambientLight.intensity = Math.max(0.15, Math.abs(sunHeight) * 0.5 + 0.1 + (sunHeight > 0 ? 0.4 : 0));
+}
+
+async function loadSkin(uuid, name) {
+    if (skinTextures[uuid]) return;
+    const cacheKey = 'skin_' + uuid;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+        const tex = new THREE.TextureLoader().load(cached);
+        skinTextures[uuid] = tex;
+        return;
+    }
+    try {
+        const resp = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + uuid);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const prop = data.properties && data.properties.find(p => p.name === 'textures');
+        if (!prop) return;
+        const decoded = JSON.parse(atob(prop.value));
+        const skinUrl = decoded.textures && decoded.textures.SKIN && decoded.textures.SKIN.url;
+        if (!skinUrl) return;
+        const tex = new THREE.TextureLoader().load(skinUrl);
+        skinTextures[uuid] = tex;
+        try { localStorage.setItem(cacheKey, skinUrl); } catch (e) {}
+    } catch (e) {
+        console.log('[FullPlay] Skin load failed for ' + name + ': ' + e.message);
+    }
+}
+
+function loadAllSkins() {
+    if (!replayData || !replayData.frames.length) return;
+    const seen = {};
+    for (const f of replayData.frames.slice(0, Math.min(20, replayData.frames.length))) {
+        for (const [uuid, p] of Object.entries(f.players)) {
+            if (!seen[uuid] && uuid !== primaryPlayer) {
+                seen[uuid] = true;
+                loadSkin(uuid, p.name);
+            }
+        }
+    }
+    // Load primary player too
+    const firstFrame = replayData.frames[0];
+    if (firstFrame.players[primaryPlayer]) {
+        loadSkin(primaryPlayer, firstFrame.players[primaryPlayer].name);
     }
 }
 
