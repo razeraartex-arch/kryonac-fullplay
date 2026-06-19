@@ -365,7 +365,7 @@ function buildBlockMeshes() {
 
     if (!replayData.chunks || replayData.chunks.length === 0) return;
 
-    const geometries = {};
+    const blockList = [];
 
     for (const chunk of replayData.chunks) {
         const cx = chunk.cx;
@@ -374,83 +374,81 @@ function buildBlockMeshes() {
         const yr = chunk.yRange || 384;
         const blocks = chunk.blocks;
 
-        if (Array.isArray(blocks)) {
-            if (blocks.length === 16 * yr * 16) {
-                for (let i = 0; i < blocks.length; i++) {
-                    const id = blocks[i];
-                    if (id === 0) continue;
-                    const x = (i / (yr * 16)) | 0;
-                    const rem = i % (yr * 16);
-                    const y = (rem / 16) | 0 + yOff;
-                    const z = rem % 16;
-                    addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
-                }
-            } else if (blocks.length > 0 && typeof blocks[0] === 'number') {
-                for (let i = 0; i < blocks.length; i++) {
-                    const id = blocks[i];
-                    if (id === 0) continue;
-                    const x = (i / (yr * 16)) | 0;
-                    const rem = i % (yr * 16);
-                    const y = (rem / 16) | 0 + yOff;
-                    const z = rem % 16;
-                    addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
-                }
-            } else {
-                for (let i = 0; i < blocks.length; i++) {
-                    const entry = blocks[i];
-                    if (typeof entry === 'string') {
-                        const parts = entry.split(':');
-                        if (parts.length === 2) {
-                            const idx = parseInt(parts[0]);
-                            const id = parseInt(parts[1]);
-                            const x = (idx / (yr * 16)) | 0;
-                            const rem = idx % (yr * 16);
-                            const y = (rem / 16) | 0 + yOff;
-                            const z = rem % 16;
-                            addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
-                        }
+        if (!Array.isArray(blocks)) continue;
+
+        if (blocks.length === 16 * yr * 16) {
+            for (let i = 0; i < blocks.length; i++) {
+                const id = blocks[i];
+                if (id === 0) continue;
+                const x = (i / (yr * 16)) | 0;
+                const rem = i % (yr * 16);
+                const y = ((rem / 16) | 0) + yOff;
+                const z = rem % 16;
+                const color = MC_COLORS[id] || 0x808080;
+                blockList.push({ wx: cx * 16 + x, wy: y, wz: cz * 16 + z, color: color });
+            }
+        } else if (blocks.length > 0 && typeof blocks[0] === 'number') {
+            for (let i = 0; i < blocks.length; i++) {
+                const id = blocks[i];
+                if (id === 0) continue;
+                const x = (i / (yr * 16)) | 0;
+                const rem = i % (yr * 16);
+                const y = ((rem / 16) | 0) + yOff;
+                const z = rem % 16;
+                const color = MC_COLORS[id] || 0x808080;
+                blockList.push({ wx: cx * 16 + x, wy: y, wz: cz * 16 + z, color: color });
+            }
+        } else {
+            for (let i = 0; i < blocks.length; i++) {
+                const entry = blocks[i];
+                if (typeof entry === 'string') {
+                    const parts = entry.split(':');
+                    if (parts.length === 2) {
+                        const idx = parseInt(parts[0]);
+                        const id = parseInt(parts[1]);
+                        if (id === 0) continue;
+                        const x = (idx / (yr * 16)) | 0;
+                        const rem = idx % (yr * 16);
+                        const y = ((rem / 16) | 0) + yOff;
+                        const z = rem % 16;
+                        const color = MC_COLORS[id] || 0x808080;
+                        blockList.push({ wx: cx * 16 + x, wy: y, wz: cz * 16 + z, color: color });
                     }
                 }
             }
         }
     }
 
-    for (const [colorKey, mesh] of Object.entries(geometries)) {
+    const colorCounts = {};
+    for (const b of blockList) {
+        const key = b.color.toString();
+        colorCounts[key] = (colorCounts[key] || 0) + 1;
+    }
+
+    const geometries = {};
+    const dummy = new THREE.Object3D();
+    for (const b of blockList) {
+        const colorKey = b.color.toString();
+        if (!geometries[colorKey]) {
+            const geo = new THREE.BoxGeometry(1, 1, 1);
+            const mat = new THREE.MeshLambertMaterial({ color: b.color });
+            geometries[colorKey] = new THREE.InstancedMesh(geo, mat, Math.max(colorCounts[colorKey], 1));
+            geometries[colorKey]._count = 0;
+        }
+        const mesh = geometries[colorKey];
+        dummy.position.set(b.wx, b.wy, b.wz);
+        dummy.updateMatrix();
+        mesh.setMatrixAt(mesh._count, dummy.matrix);
+        mesh._count++;
+        mesh.count = mesh._count;
+        mesh.instanceMatrix.needsUpdate = true;
+    }
+
+    for (const mesh of Object.values(geometries)) {
         scene.add(mesh);
         blockMeshes.push(mesh);
     }
-}
-
-function addBlock(wx, wy, wz, blockId, geometries) {
-    if (wy < -64 || wy > 320) return;
-    const color = MC_COLORS[blockId] || 0x808080;
-    const colorKey = color.toString();
-    if (!geometries[colorKey]) {
-        const geo = new THREE.BoxGeometry(1, 1, 1);
-        const mat = new THREE.MeshLambertMaterial({ color: color });
-        geometries[colorKey] = new THREE.InstancedMesh(geo, mat, 1000);
-        geometries[colorKey]._count = 0;
-        geometries[colorKey].userData = { maxCount: 1000 };
-    }
-    const instancedMesh = geometries[colorKey];
-    if (instancedMesh._count >= instancedMesh.userData.maxCount) {
-        instancedMesh.userData.maxCount += 5000;
-    }
-
-    const dummy = new THREE.Object3D();
-    dummy.position.set(wx, wy, wz);
-    dummy.updateMatrix();
-
-    if (instancedMesh._count >= instancedMesh.instanceMatrix.count) {
-        const newCount = instancedMesh.userData.maxCount;
-        instancedMesh.instanceMatrix.count = newCount;
-        instancedMesh.instanceMatrix.needsUpdate = true;
-    }
-
-    instancedMesh.setMatrixAt(instancedMesh._count, dummy.matrix);
-    instancedMesh._count++;
-    instancedMesh.count = instancedMesh._count;
-    instancedMesh.instanceMatrix.needsUpdate = true;
+    console.log('[FullPlay] Built ' + blockList.length + ' blocks in ' + Object.keys(geometries).length + ' color groups');
 }
 
 function updatePlayersList() {
