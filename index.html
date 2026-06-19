@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KryonAC FullPlay - 3D Replay Viewer</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+#canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+canvas { display: block; }
+
+#ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#ui-overlay > * { pointer-events: auto; }
+
+#token-input {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #16213e; border: 2px solid #0f3460; border-radius: 12px;
+    padding: 40px; text-align: center; width: 420px;
+}
+#token-input h1 { color: #00d6ff; font-size: 24px; margin-bottom: 8px; }
+#token-input p { color: #888; font-size: 13px; margin-bottom: 20px; }
+#token-input input {
+    width: 100%; padding: 12px; border: 1px solid #0f3460; border-radius: 6px;
+    background: #0a0e27; color: #fff; font-size: 16px; text-align: center;
+    font-family: monospace; letter-spacing: 2px;
+}
+#token-input input:focus { outline: none; border-color: #00d6ff; }
+#token-input button {
+    margin-top: 12px; padding: 10px 30px; background: #0f3460; color: #00d6ff;
+    border: 1px solid #00d6ff; border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+#token-input button:hover { background: #00d6ff; color: #0a0e27; }
+
+#controls {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,0.9));
+    padding: 20px 30px 25px;
+}
+#timeline-container { width: 100%; margin-bottom: 10px; }
+#timeline {
+    width: 100%; height: 6px; -webkit-appearance: none; background: #0f3460;
+    border-radius: 3px; outline: none; cursor: pointer;
+}
+#timeline::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; background: #00d6ff;
+    border-radius: 50%; cursor: pointer;
+}
+#controls-row { display: flex; align-items: center; gap: 15px; }
+#controls-row button {
+    background: #0f3460; border: 1px solid #00d6ff; color: #00d6ff;
+    padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
+}
+#controls-row button:hover { background: #00d6ff; color: #0a0e27; }
+#controls-row button.active { background: #00d6ff; color: #0a0e27; }
+#time-label { color: #888; font-size: 12px; font-family: monospace; min-width: 100px; }
+#player-label { color: #00d6ff; font-size: 14px; font-weight: bold; }
+#speed-label { color: #888; font-size: 12px; }
+
+#info-panel {
+    position: absolute; top: 15px; right: 15px;
+    background: rgba(22, 33, 62, 0.9); border: 1px solid #0f3460;
+    border-radius: 8px; padding: 15px; width: 280px; font-size: 12px;
+}
+#info-panel h3 { color: #00d6ff; margin-bottom: 8px; font-size: 14px; }
+.info-row { display: flex; justify-content: space-between; margin: 3px 0; }
+.info-label { color: #888; }
+.info-value { color: #e0e0e0; font-family: monospace; }
+
+#chat-panel {
+    position: absolute; bottom: 110px; left: 15px;
+    background: rgba(22, 33, 62, 0.85); border: 1px solid #0f3460;
+    border-radius: 8px; padding: 10px; width: 350px; max-height: 200px;
+    overflow-y: auto; font-size: 12px;
+}
+.chat-msg { margin: 2px 0; }
+.chat-player { color: #00d6ff; font-weight: bold; }
+.chat-text { color: #ccc; }
+
+#players-list {
+    position: absolute; top: 15px; left: 15px;
+    background: rgba(22, 33, 62, 0.9); border: 1px solid #0f3460;
+    border-radius: 8px; padding: 15px; width: 220px; font-size: 12px;
+}
+#players-list h3 { color: #00d6ff; margin-bottom: 8px; font-size: 14px; }
+.player-entry { padding: 4px 0; cursor: pointer; border-radius: 4px; padding: 4px 6px; }
+.player-entry:hover { background: rgba(0,214,255,0.1); }
+.player-entry.selected { background: rgba(0,214,255,0.2); border-left: 3px solid #00d6ff; }
+.player-name { color: #e0e0e0; font-weight: bold; }
+.player-hp { color: #ff4444; }
+.player-pos { color: #888; font-family: monospace; font-size: 11px; }
+
+#loading {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    color: #00d6ff; font-size: 18px; display: none;
+}
+</style>
+</head>
+<body>
+<div id="canvas-container"></div>
+
+<div id="ui-overlay">
+    <div id="token-input">
+        <h1>KryonAC FullPlay</h1>
+        <p>3D Replay Viewer — Enter a replay token to load</p>
+        <input type="text" id="token-field" placeholder="e.g. a1b2c3d4e5f6" maxlength="12"
+               onkeydown="if(event.key==='Enter') loadReplay()">
+        <br>
+        <button onclick="loadReplay()">Load Replay</button>
+        <div id="token-error" style="color:#ff4444;margin-top:10px;font-size:12px"></div>
+    </div>
+
+    <div id="players-list" style="display:none">
+        <h3>Players</h3>
+        <div id="players-container"></div>
+    </div>
+
+    <div id="info-panel" style="display:none">
+        <h3 id="info-title">Player Info</h3>
+        <div class="info-row"><span class="info-label">Position</span><span class="info-value" id="info-pos">-</span></div>
+        <div class="info-row"><span class="info-label">Velocity</span><span class="info-value" id="info-vel">-</span></div>
+        <div class="info-row"><span class="info-label">Health</span><span class="info-value" id="info-hp">-</span></div>
+        <div class="info-row"><span class="info-label">Food</span><span class="info-value" id="info-food">-</span></div>
+        <div class="info-row"><span class="info-label">Ground</span><span class="info-value" id="info-ground">-</span></div>
+        <div class="info-row"><span class="info-label">Gamemode</span><span class="info-value" id="info-gm">-</span></div>
+        <div class="info-row"><span class="info-label">Held</span><span class="info-value" id="info-held">-</span></div>
+        <div class="info-row"><span class="info-label">Effects</span><span class="info-value" id="info-effects">-</span></div>
+    </div>
+
+    <div id="chat-panel" style="display:none"></div>
+
+    <div id="controls" style="display:none">
+        <div id="timeline-container">
+            <input type="range" id="timeline" min="0" max="100" value="0" step="1">
+        </div>
+        <div id="controls-row">
+            <button onclick="skipBack()" title="Back 5s">⏮</button>
+            <button id="play-btn" onclick="togglePlay()" title="Play/Pause">▶</button>
+            <button onclick="skipForward()" title="Forward 5s">⏭</button>
+            <span id="time-label">0:00 / 0:00</span>
+            <span id="player-label">-</span>
+            <span style="flex:1"></span>
+            <button onclick="changeSpeed(-1)">-</button>
+            <span id="speed-label">1.0x</span>
+            <button onclick="changeSpeed(1)">+</button>
+            <button id="follow-btn" onclick="toggleFollow()" class="active">Follow</button>
+            <button onclick="resetCamera()">Reset View</button>
+        </div>
+    </div>
+
+    <div id="loading">Loading replay data...</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const FIREBASE_URL = "https://kryonac-fullplay-default-rtdb.europe-west1.firebasedatabase.app";
+
+let scene, camera, renderer, controls;
+let replayData = null;
+let currentFrame = 0;
+let isPlaying = false;
+let playSpeed = 1.0;
+let followTarget = true;
+let selectedPlayer = null;
+let primaryPlayer = null;
+let playerMeshes = {};
+let blockMeshes = [];
+let chatMessages = [];
+let clock;
+let animationId;
+
+const MC_COLORS = {
+    0: 0x000000, 1: 0x8B4513, 2: 0x6B8E23, 3: 0x808080, 4: 0xB22222,
+    5: 0x8B4513, 6: 0xDAA520, 7: 0x808080, 8: 0x4488FF, 9: 0x0000AA,
+    10: 0xFF4400, 11: 0x0000AA, 12: 0xD2B48C, 13: 0x808080, 14: 0xCC6600,
+    15: 0x333333, 16: 0x808080, 17: 0x654321, 18: 0x228B22, 19: 0xFFCC00,
+    20: 0xFFC0CB, 21: 0x808080, 22: 0x0000CC, 23: 0x696969, 24: 0xD2B48C,
+    25: 0xB8860B, 26: 0xFF6347, 27: 0x808080, 28: 0x808080, 29: 0x8B0000,
+    30: 0xFFA500, 31: 0x228B22, 32: 0x228B22, 33: 0x808080, 34: 0x808080,
+    35: 0xFFFFFF, 36: 0x228B22, 37: 0x808000, 38: 0xFF4500, 39: 0x808000,
+    40: 0x800080, 41: 0xFFD700, 42: 0xC0C0C0, 43: 0xFF6347, 44: 0x808080,
+    45: 0xB22222, 46: 0xFF4500, 47: 0x808080, 48: 0x2F4F4F, 49: 0x4B0082,
+    50: 0xFFCC00, 51: 0xFF4500, 52: 0x808080, 53: 0x654321, 54: 0x808080,
+    55: 0xFF0000, 56: 0x2F4F4F, 57: 0x00FFFF, 58: 0x8B4513, 59: 0x228B22,
+    60: 0xD2B48C, 61: 0x808080, 62: 0x808080, 63: 0x808080, 64: 0x654321,
+    65: 0x808080, 66: 0x808080, 67: 0x808080, 68: 0x808080, 69: 0xFFA500,
+    70: 0x808080, 71: 0xC0C0C0, 72: 0x654321, 73: 0x808080, 74: 0x808080,
+    75: 0x800000, 76: 0xFF4500, 77: 0x808080, 78: 0x808080, 79: 0x0000CD,
+    80: 0xFFC0CB, 81: 0x006400, 82: 0x808080, 83: 0x228B22, 84: 0x8B4513,
+    85: 0x654321, 86: 0xFFA500, 87: 0x800000, 88: 0x6B4226, 89: 0x808000,
+    90: 0xFF00FF, 91: 0xFFCC00, 92: 0xFFC0CB, 93: 0x808080, 94: 0x808080,
+    95: 0x0000CD, 96: 0x808080, 97: 0x808080, 98: 0x808080, 99: 0xFF4500,
+    100: 0xFF00FF, 101: 0x808080, 102: 0xD2B48C, 103: 0x800080, 104: 0x808080,
+    105: 0xFF4500, 106: 0x228B22, 107: 0x654321, 108: 0xB22222, 109: 0x808080,
+    110: 0x228B22, 111: 0x006400, 112: 0x4B0082, 113: 0x654321, 114: 0xB22222,
+    115: 0x800080, 116: 0x808080, 117: 0x808080, 118: 0x808080, 119: 0x000000,
+    120: 0x808080, 121: 0xD2B48C, 122: 0x800080, 123: 0xDAA520, 124: 0xFFA500,
+    125: 0x8B4513, 126: 0x808080, 127: 0xFF4500, 128: 0xD2B48C, 129: 0x808080,
+    130: 0x800000, 131: 0xFF4500, 132: 0x808080, 133: 0x00FFFF, 134: 0x00CC00,
+    135: 0xFFCC00, 136: 0x8B4513, 137: 0x808080, 138: 0x00FFFF, 139: 0x808080,
+    140: 0x228B22, 141: 0xFF4500, 142: 0x808080, 143: 0x808080, 144: 0x808080,
+    145: 0x808080, 146: 0x808080, 147: 0xD2B48C, 148: 0xD2B48C, 149: 0x808080,
+    150: 0x228B22, 151: 0x228B22, 152: 0xFF0000, 153: 0x808000, 154: 0x808080,
+    155: 0x808080, 156: 0xFF4500, 157: 0x808080, 158: 0x808080, 159: 0xFF6347,
+    160: 0x228B22, 161: 0x228B22, 162: 0xB22222, 163: 0x808080, 164: 0x808080,
+    165: 0x228B22, 166: 0x00FFFF, 167: 0x808080, 168: 0x00CC00, 169: 0xC0C0C0,
+    170: 0xDAA520, 171: 0xDAA520, 172: 0x654321, 173: 0x333333, 174: 0xFFFFFF,
+    175: 0x228B22, 176: 0xFF0000, 177: 0x808080, 178: 0x808080, 179: 0x228B22,
+    180: 0xFFA500, 181: 0x808080, 182: 0x808080, 183: 0x8B4513, 184: 0x8B4513,
+    185: 0x8B4513, 186: 0x8B4513, 187: 0x808080, 188: 0x808080, 189: 0x808080,
+    190: 0x808080, 191: 0x808080, 192: 0x808080, 193: 0x808080, 194: 0x808080,
+    195: 0x808080, 196: 0x808080, 197: 0x808080, 198: 0x808080, 199: 0x808080,
+    200: 0x808080, 201: 0x808080, 202: 0x808080, 203: 0x808080, 204: 0x808080,
+    205: 0x808080, 206: 0x808080, 207: 0x808080, 208: 0x808080, 209: 0x808080,
+    210: 0x808080, 211: 0x808080, 212: 0x808080, 213: 0x808080, 214: 0x808080,
+    215: 0x808080, 216: 0x808080, 217: 0x808080, 218: 0x808080, 219: 0x808080
+};
+
+const GAMEMODE_NAMES = ['Survival', 'Creative', 'Adventure', 'Spectator'];
+const PLAYER_COLORS = [0x00d6ff, 0xff4444, 0x44ff44, 0xffff44, 0xff44ff, 0x44ffff, 0xff8844, 0x8844ff];
+
+function init3D() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.002);
+
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0x606080, 1.2);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(100, 200, 100);
+    scene.add(dirLight);
+
+    clock = new THREE.Clock();
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 300;
+
+    window.addEventListener('resize', onResize);
+    animate();
+}
+
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+    animationId = requestAnimationFrame(animate);
+    if (controls) controls.update();
+
+    if (isPlaying && replayData) {
+        const delta = clock.getDelta() * playSpeed;
+        const frameDuration = 1 / 20;
+        const frameIncrement = Math.max(1, Math.round(delta / frameDuration));
+        const newFrame = currentFrame + frameIncrement;
+
+        if (newFrame >= replayData.frames.length) {
+            currentFrame = 0;
+        } else {
+            currentFrame = newFrame;
+        }
+        updateTimeline();
+        renderFrame(currentFrame);
+    }
+
+    renderer.render(scene, camera);
+}
+
+function getTokenFromHash() {
+    const hash = window.location.hash;
+    if (hash && hash.length > 2 && hash.startsWith('#!')) {
+        return hash.substring(2).split('/')[0].split('?')[0];
+    }
+    return null;
+}
+
+async function loadReplay() {
+    const token = document.getElementById('token-field').value.trim();
+    if (!token) {
+        document.getElementById('token-error').textContent = 'Enter a token';
+        return;
+    }
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('token-error').textContent = '';
+
+    try {
+        const resp = await fetch(FIREBASE_URL + '/replays/' + encodeURIComponent(token) + '.json');
+        if (!resp.ok) {
+            throw new Error('Recording not found (HTTP ' + resp.status + ')');
+        }
+        const data = await resp.json();
+        if (!data) {
+            throw new Error('Recording not found or expired');
+        }
+
+        replayData = data;
+        onReplayLoaded();
+    } catch (e) {
+        document.getElementById('token-error').textContent = e.message;
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+function onReplayLoaded() {
+    document.getElementById('token-input').style.display = 'none';
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('controls').style.display = '';
+    document.getElementById('info-panel').style.display = '';
+    document.getElementById('players-list').style.display = '';
+    document.getElementById('chat-panel').style.display = '';
+
+    primaryPlayer = replayData.playerUuid;
+    selectedPlayer = primaryPlayer;
+
+    document.getElementById('player-label').textContent = replayData.playerName + ' — ' + replayData.triggerCheck;
+
+    const totalSeconds = Math.floor((replayData.frames.length) / 20);
+    document.getElementById('timeline').max = replayData.frames.length - 1;
+
+    buildBlockMeshes();
+    updatePlayersList();
+    renderFrame(0);
+}
+
+function buildBlockMeshes() {
+    blockMeshes.forEach(m => scene.remove(m));
+    blockMeshes = [];
+
+    if (!replayData.chunks || replayData.chunks.length === 0) return;
+
+    const geometries = {};
+
+    for (const chunk of replayData.chunks) {
+        const cx = chunk.cx;
+        const cz = chunk.cz;
+        const yOff = chunk.yOff || 0;
+        const blocks = chunk.blocks;
+
+        if (Array.isArray(blocks)) {
+            if (blocks.length === 16 * 384 * 16) {
+                for (let i = 0; i < blocks.length; i++) {
+                    const id = blocks[i];
+                    if (id === 0) continue;
+                    const x = (i / (384 * 16)) | 0;
+                    const rem = i % (384 * 16);
+                    const y = (rem / 16) | 0 + yOff;
+                    const z = rem % 16;
+                    addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
+                }
+            } else if (blocks.length > 0 && typeof blocks[0] === 'number') {
+                for (let i = 0; i < blocks.length; i++) {
+                    const id = blocks[i];
+                    if (id === 0) continue;
+                    const x = (i / (384 * 16)) | 0;
+                    const rem = i % (384 * 16);
+                    const y = (rem / 16) | 0 + yOff;
+                    const z = rem % 16;
+                    addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
+                }
+            } else {
+                for (let i = 0; i < blocks.length; i++) {
+                    const entry = blocks[i];
+                    if (typeof entry === 'string') {
+                        const parts = entry.split(':');
+                        if (parts.length === 2) {
+                            const idx = parseInt(parts[0]);
+                            const id = parseInt(parts[1]);
+                            const x = (idx / (384 * 16)) | 0;
+                            const rem = idx % (384 * 16);
+                            const y = (rem / 16) | 0 + yOff;
+                            const z = rem % 16;
+                            addBlock(cx * 16 + x, y, cz * 16 + z, id, geometries);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (const [colorKey, mesh] of Object.entries(geometries)) {
+        scene.add(mesh);
+        blockMeshes.push(mesh);
+    }
+}
+
+function addBlock(wx, wy, wz, blockId, geometries) {
+    if (wy < -64 || wy > 320) return;
+    const color = MC_COLORS[blockId] || 0x808080;
+    const colorKey = color.toString();
+    if (!geometries[colorKey]) {
+        const geo = new THREE.BufferGeometry();
+        const mat = new THREE.MeshLambertMaterial({ color: color, transparent: blockId === 0, opacity: 0.8 });
+        geometries[colorKey] = new THREE.InstancedMesh(geo, mat, 0);
+        geometries[colorKey]._count = 0;
+        geometries[colorKey].userData = { maxCount: 10000 };
+        const dummy = new THREE.Object3D();
+        geometries[colorKey].instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    }
+    const instancedMesh = geometries[colorKey];
+    if (instancedMesh._count >= instancedMesh.userData.maxCount) {
+        instancedMesh.userData.maxCount += 5000;
+    }
+
+    const dummy = new THREE.Object3D();
+    dummy.position.set(wx, wy, wz);
+    dummy.updateMatrix();
+
+    if (instancedMesh._count >= instancedMesh.instanceMatrix.count) {
+        const newCount = instancedMesh.userData.maxCount;
+        instancedMesh.instanceMatrix.count = newCount;
+        instancedMesh.instanceMatrix.needsUpdate = true;
+    }
+
+    instancedMesh.setMatrixAt(instancedMesh._count, dummy.matrix);
+    instancedMesh._count++;
+    instancedMesh.count = instancedMesh._count;
+    instancedMesh.instanceMatrix.needsUpdate = true;
+}
+
+function updatePlayersList() {
+    const container = document.getElementById('players-container');
+    container.innerHTML = '';
+    if (!replayData || !replayData.frames.length) return;
+
+    const firstFrame = replayData.frames[0];
+    const uuids = Object.keys(firstFrame.players);
+    const colorIdx = {};
+
+    uuids.forEach((uuid, i) => {
+        const p = firstFrame.players[uuid];
+        const div = document.createElement('div');
+        div.className = 'player-entry' + (uuid === selectedPlayer ? ' selected' : '');
+        div.style.borderLeft = '3px solid #' + PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16).padStart(6, '0');
+        div.innerHTML = '<div class="player-name">' + esc(p.name) + '</div><div class="player-pos">X:' + p.x.toFixed(1) + ' Y:' + p.y.toFixed(1) + ' Z:' + p.z.toFixed(1) + '</div>';
+        div.onclick = function() { selectedPlayer = uuid; updatePlayersList(); };
+        container.appendChild(div);
+        colorIdx[uuid] = i;
+    });
+}
+
+function renderFrame(frameIdx) {
+    if (!replayData || frameIdx >= replayData.frames.length) return;
+
+    const frame = replayData.frames[frameIdx];
+    const tick = frame.tick;
+
+    while (Object.keys(playerMeshes).length > 0) {
+        const key = Object.keys(playerMeshes)[0];
+        scene.remove(playerMeshes[key]);
+        delete playerMeshes[key];
+    }
+
+    const uuids = Object.keys(frame.players);
+    uuids.forEach(function(uuid, i) {
+        const p = frame.players[uuid];
+        const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
+
+        const group = new THREE.Group();
+        group.position.set(p.x, p.y + 0.9, p.z);
+
+        const bodyGeo = new THREE.BoxGeometry(0.6, 1.2, 0.3);
+        const bodyMat = new THREE.MeshLambertMaterial({ color: color });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        group.add(body);
+
+        const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+        const headMat = new THREE.MeshLambertMaterial({ color: color });
+        const head = new THREE.Mesh(headGeo, headMat);
+        head.position.y = 0.85;
+        group.add(head);
+
+        const dir = new THREE.Vector3(0, 0, -1);
+        dir.applyEuler(new THREE.Euler(
+            THREE.MathUtils.degToRad(p.pitch),
+            THREE.MathUtils.degToRad(p.yaw),
+            0, 'YXZ'
+        ));
+        const lookEnd = dir.clone().multiplyScalar(2).add(new THREE.Vector3(0, 0.85, 0));
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([
+            new THREE.Vector3(0, 0.85, 0), lookEnd
+        ]);
+        const lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
+        group.add(new THREE.Line(lineGeo, lineMat));
+
+        if (uuid === selectedPlayer && p.hp !== undefined) {
+            const hpBarWidth = 0.6;
+            const hpRatio = p.hp / 20;
+            const hpBgGeo = new THREE.PlaneGeometry(hpBarWidth, 0.06);
+            const hpBgMat = new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide });
+            const hpBg = new THREE.Mesh(hpBgGeo, hpBgMat);
+            hpBg.position.y = 1.4;
+            group.add(hpBg);
+
+            const hpFgGeo = new THREE.PlaneGeometry(hpBarWidth * hpRatio, 0.06);
+            const hpColor = hpRatio > 0.5 ? 0x44ff44 : hpRatio > 0.25 ? 0xffff44 : 0xff4444;
+            const hpFgMat = new THREE.MeshBasicMaterial({ color: hpColor, side: THREE.DoubleSide });
+            const hpFg = new THREE.Mesh(hpFgGeo, hpFgMat);
+            hpFg.position.y = 1.4;
+            hpFg.position.x = -(hpBarWidth * (1 - hpRatio)) / 2;
+            group.add(hpFg);
+        }
+
+        scene.add(group);
+        playerMeshes[uuid] = group;
+    });
+
+    if (followTarget && playerMeshes[selectedPlayer]) {
+        const pos = playerMeshes[selectedPlayer].position;
+        camera.position.set(pos.x + 5, pos.y + 3, pos.z + 5);
+        controls.target.copy(pos);
+        controls.update();
+    }
+
+    if (frame.chat && frame.chat.length > 0) {
+        const chatPanel = document.getElementById('chat-panel');
+        frame.chat.forEach(function(c) {
+            chatPanel.innerHTML += '<div class="chat-msg"><span class="chat-player">' + esc(c.p) + ': </span><span class="chat-text">' + esc(c.m) + '</span></div>';
+        });
+        chatPanel.scrollTop = chatPanel.scrollHeight;
+    }
+
+    updateInfoPanel(frame);
+    updatePlayersListPosition(frame);
+}
+
+function updateInfoPanel(frame) {
+    if (!selectedPlayer || !frame.players[selectedPlayer]) return;
+    const p = frame.players[selectedPlayer];
+
+    document.getElementById('info-title').textContent = p.name;
+    document.getElementById('info-pos').textContent = p.x.toFixed(2) + ', ' + p.y.toFixed(2) + ', ' + p.z.toFixed(2);
+    document.getElementById('info-vel').textContent = p.vx.toFixed(3) + ', ' + p.vy.toFixed(3) + ', ' + p.vz.toFixed(3);
+    document.getElementById('info-hp').textContent = p.hp.toFixed(1) + ' / 20';
+    document.getElementById('info-food').textContent = p.food + ' / 20';
+    document.getElementById('info-ground').textContent = p.g ? 'Yes' : 'No';
+    document.getElementById('info-gm').textContent = GAMEMODE_NAMES[p.gm] || 'Unknown';
+    document.getElementById('info-held').textContent = p.held || 'AIR';
+    document.getElementById('info-effects').textContent = (p.effects || []).join(', ') || 'None';
+}
+
+function updatePlayersListPosition(frame) {
+    const entries = document.querySelectorAll('#players-container .player-entry');
+    const uuids = Object.keys(frame.players);
+    entries.forEach(function(entry, i) {
+        if (i < uuids.length) {
+            const p = frame.players[uuids[i]];
+            const posEl = entry.querySelector('.player-pos');
+            if (posEl) posEl.textContent = 'X:' + p.x.toFixed(1) + ' Y:' + p.y.toFixed(1) + ' Z:' + p.z.toFixed(1);
+        }
+    });
+}
+
+function updateTimeline() {
+    if (!replayData) return;
+    const el = document.getElementById('timeline');
+    el.value = currentFrame;
+
+    const totalSeconds = replayData.frames.length / 20;
+    const currentSeconds = currentFrame / 20;
+
+    const curMin = Math.floor(currentSeconds / 60);
+    const curSec = Math.floor(currentSeconds % 60);
+    const totMin = Math.floor(totalSeconds / 60);
+    const totSec = Math.floor(totalSeconds % 60);
+
+    document.getElementById('time-label').textContent =
+        curMin + ':' + curSec.toString().padStart(2, '0') + ' / ' + totMin + ':' + totSec.toString().padStart(2, '0');
+}
+
+function togglePlay() {
+    isPlaying = !isPlaying;
+    document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
+    if (isPlaying) clock.getDelta();
+}
+
+function skipBack() {
+    if (!replayData) return;
+    currentFrame = Math.max(0, currentFrame - 100);
+    updateTimeline();
+    renderFrame(currentFrame);
+}
+
+function skipForward() {
+    if (!replayData) return;
+    currentFrame = Math.min(replayData.frames.length - 1, currentFrame + 100);
+    updateTimeline();
+    renderFrame(currentFrame);
+}
+
+function changeSpeed(dir) {
+    var speeds = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
+    var idx = speeds.indexOf(playSpeed);
+    if (idx === -1) idx = 2;
+    idx = Math.max(0, Math.min(speeds.length - 1, idx + dir));
+    playSpeed = speeds[idx];
+    document.getElementById('speed-label').textContent = playSpeed + 'x';
+}
+
+function toggleFollow() {
+    followTarget = !followTarget;
+    document.getElementById('follow-btn').classList.toggle('active', followTarget);
+}
+
+function resetCamera() {
+    if (playerMeshes[selectedPlayer]) {
+        const pos = playerMeshes[selectedPlayer].position;
+        camera.position.set(pos.x + 10, pos.y + 5, pos.z + 10);
+        controls.target.copy(pos);
+        controls.update();
+    }
+}
+
+document.getElementById('timeline').addEventListener('input', function() {
+    currentFrame = parseInt(this.value);
+    isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶';
+    renderFrame(currentFrame);
+    updateTimeline();
+});
+
+function esc(s) {
+    if (!s) return '';
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+init3D();
+
+var hashToken = getTokenFromHash();
+if (hashToken) {
+    document.getElementById('token-field').value = hashToken;
+    loadReplay();
+}
+</script>
+
+</body>
+</html>
