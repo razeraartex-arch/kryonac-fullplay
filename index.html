@@ -159,12 +159,18 @@ canvas { display: block; }
 
     <div id="loading">Loading replay data...</div>
     <div id="block-tooltip" style="display:none;position:absolute;bottom:110px;right:15px;background:rgba(22,33,62,0.9);border:1px solid #0f3460;border-radius:6px;padding:8px 12px;font-size:12px;color:#e0e0e0;font-family:monospace;pointer-events:none;z-index:100"></div>
+    <div id="error-display" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(200,0,0,0.9);color:#fff;padding:20px;border-radius:10px;font-size:14px;max-width:500px;text-align:center;z-index:999;font-family:monospace;white-space:pre-wrap"></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 const FIREBASE_URL = "https://kryonac-fullplay-default-rtdb.europe-west1.firebasedatabase.app";
+
+window.onerror = function(msg, url, line, col, err) {
+    var ed = document.getElementById('error-display');
+    if (ed) { ed.style.display = 'block'; ed.textContent = 'ERROR: ' + (err ? err.message : msg) + '\nLine: ' + line; }
+};
 
 let scene, camera, renderer, controls;
 let replayData = null;
@@ -403,29 +409,20 @@ function onReplayLoaded() {
     document.getElementById('players-list').style.display = '';
     document.getElementById('chat-panel').style.display = '';
 
-    let debugInfo = 'Chunks: ' + (replayData.chunks ? replayData.chunks.length : 0);
-    if (replayData.chunks && replayData.chunks.length > 0) {
-        const c = replayData.chunks[0];
-        debugInfo += ' | yRange: ' + (c.yRange || 'MISSING') + ' | blocks: ' + (c.blocks ? c.blocks.length : 0);
-        if (c.blocks && c.blocks.length > 0) {
-            debugInfo += ' | type: ' + typeof c.blocks[0] + ' | sample: ' + JSON.stringify(c.blocks[0]);
-        }
-    }
-    console.log('[FullPlay] ' + debugInfo);
+    console.log('[FullPlay] Chunks: ' + (replayData.chunks ? replayData.chunks.length : 0) +
+        ' | Frames: ' + (replayData.frames ? replayData.frames.length : 0));
 
     primaryPlayer = replayData.playerUuid;
     selectedPlayer = primaryPlayer;
     currentWorld = null;
 
     document.getElementById('player-label').textContent = replayData.playerName + ' — ' + replayData.triggerCheck;
-
-    const totalSeconds = Math.floor((replayData.frames.length) / 20);
     document.getElementById('timeline').max = replayData.frames.length - 1;
 
-    buildBlockMeshes();
+    try { buildBlockMeshes(); } catch(e) { var ed=document.getElementById('error-display');ed.style.display='block';ed.textContent='buildBlockMeshes: '+e.message; }
     loadAllSkins();
     updatePlayersList();
-    renderFrame(0);
+    try { renderFrame(0); } catch(e) { var ed=document.getElementById('error-display');ed.style.display='block';ed.textContent='renderFrame: '+e.message; }
 }
 
 function buildBlockMeshes() {
@@ -608,8 +605,10 @@ function renderFrame(frameIdx) {
         head.rotation.x = pitchRad;
         bodyGroup.add(head);
 
-        var _speed = Math.sqrt(p.vx * p.vx + p.vz * p.vz);
-        var _swing = Math.sin(frame.tick * Math.min(_speed * 3, 6)) * Math.min(_speed * 2, 0.5);
+        var _speed = Math.sqrt(p.vx * p.vx + p.vz * p.vz) || 0;
+        var _swing = Math.sin(frame.tick * Math.min(_speed * 3, 6)) * Math.min(_speed * 2, 0.5) || 0;
+
+        try {
 
         var _mkLimb = function(box, px, py, oy, swing, axis) {
             var g = new THREE.Group();
@@ -730,6 +729,7 @@ function renderFrame(frameIdx) {
 
         scene.add(group);
         playerMeshes[uuid] = group;
+    } catch(e) { console.error('[FullPlay] Player render error for ' + uuid + ':', e); document.getElementById('error-display').style.display='block'; document.getElementById('error-display').textContent = 'Player ' + p.name + ': ' + e.message; }
     });
 
     if (replayData.projectiles && replayData.projectiles.length > 0) {
