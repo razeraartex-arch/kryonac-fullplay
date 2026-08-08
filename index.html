@@ -1,358 +1,265 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KryonAC FullPlay - 3D Replay Viewer</title>
+<title>KryonAC &middot; FullPlay Replay Viewer</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
-#canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-canvas { display: block; }
+:root{--gold:#ffd94a;--green:#55ff55;--yellow:#ffff55;--red:#ff5555;--aqua:#55ffff;}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Segoe UI',sans-serif;color:#fff;}
+#stage{position:fixed;inset:0;background:#02040c;}
+canvas{display:block;}
+*::-webkit-scrollbar{width:8px;}
 
-#ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-#ui-overlay > * { pointer-events: auto; }
+/* ---------- TOP BAR ---------- */
+#bar{position:fixed;top:0;left:0;right:0;height:46px;z-index:100;background:rgba(8,12,20,.85);border-bottom:2px solid #2e7d54;
+     display:flex;align-items:center;gap:10px;padding:0 12px;backdrop-filter:blur(4px);}
+.logo{font-size:13px;color:#6fbf2f;letter-spacing:2px;font-weight:700;text-shadow:0 2px 0 #000;}
+.logo span{color:#4e6f8f;}
+#tokenInput{flex:1;max-width:300px;height:26px;background:#0a0a10;border:1px solid #2b2b35;color:#fff;padding:0 9px;
+            font-size:13px;outline:none;border-radius:2px;}
+#tokenInput:focus{border-color:#6cbf2f;}
+.btn{height:25px;padding:0 13px;background:linear-gradient(#3a3f48,#24272d 60%,#1c1f24);color:#eaeaea;border:none;outline:1px solid #000;
+     border-radius:2px;font-size:12px;cursor:pointer;}
+.btn:hover{background:linear-gradient(#4a5058,#2e3237 60%,#262b30);}
+.btn.primary{background:linear-gradient(#5eaa2f,#46852a 60%,#3a7020);}
+.btn.primary:hover{background:linear-gradient(#6fbd3a,#56a231 60%,#46852a);}
+#buttons{margin-left:auto;display:flex;gap:7px;align-items:center;}
 
-/* Modal Input Token */
-#token-input {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: rgba(30, 41, 59, 0.95); border: 1px solid #38bdf8; border-radius: 12px;
-    padding: 30px; text-align: center; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-    backdrop-filter: blur(8px);
-}
-#token-input h1 { color: #38bdf8; font-size: 22px; margin-bottom: 6px; font-weight: 700; }
-#token-input p { color: #94a3b8; font-size: 13px; margin-bottom: 18px; }
-#token-input input {
-    width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px;
-    background: #0f172a; color: #fff; font-size: 15px; text-align: center;
-    font-family: monospace; letter-spacing: 2px; outline: none;
-}
-#token-input input:focus { border-color: #38bdf8; }
-#token-input button {
-    margin-top: 12px; width: 100%; padding: 10px; background: #38bdf8; color: #0f172a;
-    border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: 0.2s;
-}
-#token-input button:hover { background: #0284c7; color: #fff; }
+/* ---------- RIGHT PANEL ---------- */
+#side{position:fixed;right:10px;top:58px;bottom:58px;width:290px;z-index:90;display:flex;flex-direction:column;gap:7px;}
+.box{background:rgba(10,14,22,.9);border:1px solid #2a2e36;border-radius:3px;display:flex;flex-direction:column;min-height:0;}
+.box .head{font-size:11px;color:#8a92a0;letter-spacing:1px;padding:8px 10px;border-bottom:1px solid #262b33;}
+.tabs{display:flex;border-bottom:1px solid #262b33;}
+.tabs div{flex:1;text-align:center;padding:8px 0;font-size:11px;color:#8f96a3;cursor:pointer;}
+.tabs div.on{color:#9cf25f;background:#121a29;border-radius:6px 6px 0 0;}
+.tabs div:hover{color:#c8cfda;}
+.body{flex:1;overflow-y:auto;padding:7px;}
+.body .lbl{color:#6b7280;font-size:11px;text-align:center;padding:10px 0;}
+.player-row{display:flex;align-items:center;gap:8px;padding:6px 5px;cursor:pointer;border-radius:6px;font-size:12px;}
+.player-row:hover{background:#1a2130;}
+.player-row .huh{width:24px;height:24px;border-radius:6px;background:#333;border:2px solid #444;flex:0 0 auto;}
+.player-row.self{outline:1px solid #5fae2f;}
+.player-row.self .huh{box-shadow:0 0 0 2px rgba(95,174,47,.45);}
+.player-row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.player-row .hp{color:#ff6f6f;font-size:11px;}
+.player-row.on .nm{color:#9cf25f;}
+.ev{font-size:11px;padding:5px 4px;border-left:2px solid #3f4c2f;margin:2px 0;color:#c8d2c2;line-height:1.45;}
+.ev .mt{color:#6b8e42;}
+.chatm{font-size:11.5px;padding:4px 6px;margin:2px 0;color:#dde3ea;border-left:2px solid #37518f;}
+.chatm .who{color:#7ab8ff;margin-right:5px;}
+.info-kv{font-size:11.5px;line-height:1.9;color:#c6cdd6;}
+.info-kv b{color:#9cf25f;font-weight:600;}
 
-/* Controlli Inferiori */
-#controls {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(transparent, rgba(15, 23, 42, 0.95));
-    padding: 15px 25px; display: flex; flex-direction: column; gap: 10px;
-}
-#timeline {
-    width: 100%; height: 6px; -webkit-appearance: none; background: #334155;
-    border-radius: 3px; outline: none; cursor: pointer;
-}
-#timeline::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 14px; height: 14px; background: #38bdf8;
-    border-radius: 50%; cursor: pointer;
-}
-#controls-row { display: flex; align-items: center; gap: 10px; }
-#controls-row button {
-    background: #1e293b; border: 1px solid #334155; color: #38bdf8;
-    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
-}
-#controls-row button:hover { background: #38bdf8; color: #0f172a; }
-#controls-row button.active { background: #0284c7; color: #fff; border-color: #0284c7; }
-#time-label { color: #94a3b8; font-size: 12px; font-family: monospace; }
-#player-label { color: #38bdf8; font-size: 13px; font-weight: bold; margin-left: 10px; }
+/* ---------- HUD (bottom-left) ---------- */
+#hud{position:fixed;left:14px;bottom:70px;z-index:80;pointer-events:none;display:flex;flex-direction:column;gap:4px;}
+#rowBars{display:flex;align-items:center;gap:6px;font-size:13px;letter-spacing:1px;}
+#rowBars .v{font-size:15px;}
 
-/* Pannelli */
-#info-panel, #players-list, #chat-panel {
-    position: absolute; background: rgba(30, 41, 59, 0.9); border: 1px solid #334155;
-    border-radius: 8px; padding: 12px; font-size: 12px; backdrop-filter: blur(4px);
-}
-#info-panel { top: 15px; right: 15px; width: 260px; max-height: 75vh; overflow-y: auto; }
-#players-list { top: 15px; left: 15px; width: 200px; }
-#chat-panel { bottom: 90px; left: 15px; width: 300px; max-height: 150px; overflow-y: auto; }
+/* ---------- TIMELINE ---------- */
+#tline{position:fixed;left:0;right:0;bottom:0;height:54px;z-index:110;background:rgba(8,12,20,.95);border-top:2px solid #2e5f7f;
+       display:flex;flex-direction:column;padding:7px 14px 8px;gap:6px;}
+#tcontrols{display:flex;align-items:center;gap:10px;font-size:11px;color:#9aa3ad;}
+#tlNow{font-family:'Fira Mono',Consolas,monospace;color:#a8f05a;min-width:68px;}
+#status{font-size:11px;color:#8fa;flex:1;text-align:center;}
+#tmax{font-family:monospace;color:#7a8493;min-width:60px;text-align:right;font-size:10px;}
+#scrub{flex:1;height:14px;background:#0b101a;border:1px solid #2b3340;border-radius:9px;cursor:pointer;position:relative;overflow:visible;}
+#fill{position:absolute;left:0;top:0;bottom:0;border-radius:9px;background:linear-gradient(180deg,#7fc24e,#5d9c30);}
+#knob{position:absolute;top:50%;width:10px;height:22px;background:#dfe6ee;border:1px solid #3a4250;transform:translate(-50%,-50%);border-radius:3px;}
 
-.panel-title { color: #38bdf8; font-size: 13px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
-.info-row { display: flex; justify-content: space-between; margin: 3px 0; }
-.info-label { color: #94a3b8; }
-.info-value { color: #f8fafc; font-family: monospace; }
+/* ---------- CHAT OVERLAY ---------- */
+#chatOver{bottom:74px;left:14px;position:fixed;z-index:75;display:flex;flex-direction:column;gap:3px;
+           max-width:430px;pointer-events:none;}
+.ctbar{background:rgba(10,14,20,.75);padding:4px 9px;font-size:11.5px;color:#dbe2ec;border-left:2px solid #4d94e0;border-radius:0 4px 4px 0;}
 
-.player-entry { padding: 5px; cursor: pointer; border-radius: 4px; margin-bottom: 2px; }
-.player-entry:hover { background: rgba(56, 189, 248, 0.1); }
-.player-entry.selected { background: rgba(56, 189, 248, 0.2); font-weight: bold; }
-
-#loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #38bdf8; font-size: 16px; font-weight: bold; display: none; }
+/* ---------- F3 ---------- */
+#f3{position:fixed;left:10px;top:54px;z-index:300;background:rgba(8,10,16,.8);border:1px solid #2a3a2a;color:#a5e0a5;
+    padding:10px 12px;font-size:11px;font-family:'Fira Code',Consolas,monospace;display:none;LINE-HEIGHT:1.7;border-radius:6px;}
+#dragHint{position:fixed;left:50%;bottom:64px;z-index:75;transform:translateX(-50%);color:#9aa8with;font-size:11px;pointer-events:none;}
 </style>
 </head>
 <body>
 
-<div id="canvas-container"></div>
+<div id="bar">
+  <div class="logo">KRYON<span>AC</span> FULL<span>PLAY</span></div>
+  <input id="tokenInput" placeholder="token / #hash" autocomplete="off" spellcheck="false">
+  <button class="btn primary" id="btnLoad">Load</button>
+  <button class="btn" id="btnStop">Stop</button>
+  <div id="buttons">
+    <div id="mr">--</div>
+    <div id="clock">--:--</div>
+    <button class="btn" id="btnF3">F3</button>
+  </div>
+</div>
 
-<div id="ui-overlay">
-    <div id="token-input">
-        <h1>KryonAC FullPlay</h1>
-        <p>Inserisci il Token Replay per iniziare</p>
-        <input type="text" id="token-field" placeholder="Es. a1b2c3d4e5f6" maxlength="12" onkeydown="if(event.key==='Enter') loadReplay()">
-        <button onclick="loadReplay()">Carica Replay</button>
-        <div id="token-error" style="color:#ef4444; margin-top:8px; font-size:12px;"></div>
+<div id="f3"></div>
+
+<div id="side">
+  <div class="box" style="flex:2;">
+    <div class="tabs">
+      <div class="t active" data-t="7">Players</div>
+      <div class="t" data-t="2">Events</div>
+      <div class="t" data-t="3">Chat</div>
     </div>
-
-    <div id="players-list" style="display:none">
-        <div class="panel-title">Giocatori</div>
-        <div id="players-container"></div>
+    <div class="body" id="pg-players"><div class="lbl">Waiting for data...</div></div>
+    <div class="body" id="pg-events" style="display:none"></div>
+    <div class="body" id="pg-chat" style="display:none"></div>
+  </div>
+  <div class="box" style="flex:0 0 106px;">
+    <div class="head">INFO</div>
+    <div class="body" id="pg-info" style="padding:6px 10px;">
+      <div class="info-kv" id="infoContent"></div>
     </div>
+  </div>
+</div>
 
-    <div id="info-panel" style="display:none">
-        <div class="panel-title" id="info-title">Info Giocatore</div>
-        <div class="info-row"><span class="info-label">Mondo</span><span class="info-value" id="info-world">-</span></div>
-        <div class="info-row"><span class="info-label">Posizione</span><span class="info-value" id="info-pos">-</span></div>
-        <div class="info-row"><span class="info-label">Velocità</span><span class="info-value" id="info-speed">-</span></div>
-        <div class="info-row"><span class="info-label">Vita</span><span class="info-value" id="info-hp">-</span></div>
-        <div class="info-row"><span class="info-label">Item in Mano</span><span class="info-value" id="info-held">-</span></div>
-    </div>
+<div id="hud">
+  <div id="rowBars"></div>
+</div>
 
-    <div id="chat-panel" style="display:none">
-        <div class="panel-title">Chat Log</div>
-        <div id="chat-container"></div>
-    </div>
+<div id="chatOver"></div>
 
-    <div id="controls" style="display:none">
-        <input type="range" id="timeline" min="0" max="100" value="0" oninput="seekFrame(this.value)">
-        <div id="controls-row">
-            <button onclick="skip(-100)">⏮</button>
-            <button id="play-btn" onclick="togglePlay()">▶</button>
-            <button onclick="skip(100)">⏭</button>
-            <span id="time-label">00:00</span>
-            <span id="player-label">-</span>
-            <span style="flex:1"></span>
-            <button onclick="changeSpeed()">Velocità: <span id="speed-label">1.0x</span></button>
-            <button id="follow-btn" class="active" onclick="toggleFollow()">Segui Camera</button>
-        </div>
-    </div>
-
-    <div id="loading">Caricamento Replay in corso...</div>
+<div id="tline">
+  <div id="tcontrols">
+    <button class="btn primary" id="btnPlay">&#9654;</button>
+    <span id="items">0.0s</span>
+    <div id="scrub"><div id="knob"></div></div>
+    <span id="tmax">-</span>
+    <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option><option value="4">4x</option></select>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-
 <script>
-const FIREBASE_URL = "https://kryonac-fullplay-default-rtdb.europe-west1.firebasedatabase.app";
+"use strict";
+(function(){
+/***************************************************************
+ * KryonAC FullPlay Viewer
+ * - Legacy 1.12 material ids (getId) palette
+ * - Server  : /api/data?token=...  or Firebase fallback
+ * - Controls: drag orbit, wheel zoom, dblclick follow, space,
+ *             arrows seek, T trails, F9 debug, P toggle panels
+ ***************************************************************/
+var $=function(s){return document.querySelector(s);};
+var num=function(v){return (typeof v==="number"&&v===v)?v:0;};
+var lerp=function(a,b,t){return a+(b-a)*t;};
+var clamp=function(v,a,b){return v<a?a:v>b?b:v;};
+var fmtS=function(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+(s%60<10?"0":"")+(s%60);};
+var esc=function(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];});};
 
-let scene, camera, renderer, controls;
-let replayData = null;
-let currentFrame = 0;
-let isPlaying = false;
-let playSpeed = 1.0;
-let followTarget = true;
-let selectedPlayer = null;
-let playerMeshes = {};
-let blockMeshes = [];
-const speeds = [0.5, 1.0, 1.5, 2.0];
-let speedIdx = 1;
+var ST={data:null,t0:0,t1:0,tick:0,playing:true,speed:1,frames:[],chunks:[],
+        chat:[],events:[],proj:[],tokens:null,skinFix:false};
+var THREE_W=window.THREE;
+var renderer,scene,camera,ctrls;
+var gWorld=new THREE_W.Group(),gPlayers=new THREE_W.Group(),gProj=new THREE_W.Group();
+var playerMeshes={};
+var orderIDs=[];
+var hidden={};
+var follow=null;
+var cur=0;
+var lastFrame=-1,lastEvt=0,lastProj=0,lastChat=0;
+var shadowMap=new THREE_W.Map();
 
-const BLOCK_COLORS = {
-    1: 0x808080, 2: 0x557a2b, 3: 0x866043, 4: 0x555555, 5: 0x9c7849, 
-    8: 0x2e5c8a, 9: 0x2e5c8a, 10: 0xd05819, 11: 0xd05819, 12: 0xd8d098, 18: 0x2d5e1e
-};
-
-function init3D() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x0f172a);
-
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.set(0, 20, 30);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    dirLight.position.set(50, 100, 50);
-    scene.add(dirLight);
-
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
-    window.addEventListener('resize', onResize);
-    animate();
+function ck(cx,cz){return ST.chunkMap ? ST.chunkMap[cx+","+cz] : null;}
+function blockAt(x,y,z){
+  var c=ck(Math.floor(x/16),Math.floor(z/16));
+  if(!c)return 0;
+  var yl=y-c.yOff;
+  if(yl<0||yl>=c.yR)return 0;
+  return c.data[((x&15)*c.yR+yl)*16+(z&15)]||0;
 }
-
-function onResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+/* material palette - legacy id -> [r,g,b] */
+var PAL={};
+(function(){
+  function C(hex){return [parseInt(hex.substr(1,2),16)/255,parseInt(hex.substr(3,2),16)/255,parseInt(hex.substr(5,2),16)/255];}
+  var M={1:"#8d8d8d",2:"#7db24c",3:"#a4754c",4:"#8b8b8d",5:"#b8945f",7:"#3a3a3a",12:"#e5dca3",
+    13:"#a0a0a0",14:"#c9a01e",15:"#c9a58d",16:"#3f3f3f",17:"#6b4c2",18:"#4d9a3c",24:"#e2d08e",
+    35:"#e9e9e9",45:"#b0594a",47:"#8a744e",48:"#5d6b4a",62:"#b59472",73:"#a87838",78:"#eef4f7",
+    80:"#e5f0f4",82:"#a8b8c0",86:"#d97028",98:"#8a8a8e",110:"#6e5a80",112:"#6e1a14",121:"#e7d9a2",
+    129:"#7c8c1b",133:"#3fd06e",134:"#6d5c3a",155:"#f0f0ea",161:"#5d8a3c",162:"#a17c51",172:"#eff8fb",
+    173:"#a9d8e8",174:"#9fcfe0",179:"#c07a3a",255:0};
+  for(var id in M){if(M[id]!==0)PAL[id]=M[id];}
+})();
+function colorOf(id){
+  var c=PAL[id];
+  return c?new THREE_W.Color(c[0],c[1],c[2]):new THREE_W.Color();//air
 }
+function initThree(){
+  renderer=new THREE_W.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  renderer.setSize(window.innerWidth,window.innerHeight);
+  $("#stage").appendChild(renderer.domElement);
+  scene=new THREE_W.Scene();
+  scene.background=new THREE_W.Color(0x87bdf2);
+  scene.fog=new THREE_W.Fog(0x8dbee8,250,700);
+  camera=new THREE_W.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,1500);
+  camera.position.set(10,40,40);
+  ctrls=new THREE_W.OrbitControls(camera,renderer.domElement);
+  ctrls.enableDamping=true;ctrls.dampingFactor=.1;ctrls.maxPolarAngle=1.4;
+  scene.add(new THREE_W.HemisphereLight(0xffffff,0x8fb8e8,.9));
+  scene.add(new THREE_W.AmbientLight(0xffffff,.45));
+  new THREE_W.DirectionalLight(0xffffff,.8).position.set(60,120,40).addTo(scene);
+  scene.add(gWorld);scene.add(gPlayers);scene.add(gProj);
 
-function animate() {
-    requestAnimationFrame(animate);
-    if (controls) controls.update();
-
-    if (isPlaying && replayData && replayData.frames) {
-        currentFrame += playSpeed;
-        if (currentFrame >= replayData.frames.length) currentFrame = 0;
-        document.getElementById('timeline').value = Math.floor(currentFrame);
-        renderFrame(Math.floor(currentFrame));
+  /* sky: sun & moon sprites */
+  var mk=function(c){var cv=document.createElement("canvas");cv.width=cv.height=64;var cx=cv.getContext("2d");
+    var gr=cx.createRadialGradient(32,32,0,32,32,32);gr.addColorStop(0,c);gr.addColorStop(1,"rgba(0,0,0,0)");cx.fillStyle=gr;cx.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(cv);};
+  sun=new THREE_W.Sprite(new THREE_W.SpriteMaterial({map:mk("#ffe0a0"),fog:false}));sun.scale.set(160,160,1);scene.add(sun);
+  moon=new THREE_W.Sprite(new THREE_W.SpriteMaterial({map:mk("#d0d8f0"),fog:false,opacity:0}));moon.scale.set(90,90,1);scene.add(moon);
+  window.addEventListener("resize",function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+  renderer.domElement.addEventListener("dblclick",function(e){var u=pick(e);if(u&&playerMeshes[u]){follow=u;toast("Following "+nameOf(u));}});
+  requestAnimationFrame(tick);
+}
+/* ---------------- terrain ---------------- */
+function decodeChunks(list,prog){
+  var map={};
+  for(var i=0;i<list.length;i++){
+    var c=list[i];if(!c)continue;
+    var yOff=Math.floor(c.yOff||0),yR=Math.max(1,Math.floor(c.yRange||256));
+    var arr=new Int16Array(16*yR*16);
+    var raw=c.blocks;
+    if(raw&&raw.length){
+      if(typeof raw[0]==="number"){for(var j=0;j<raw.length&&j<arr.length;j++)arr[j]=raw[j]&0x7fff;}
+      else{for(j=0;j<raw.length;j++){var p=(""+raw[j]).split(":");if(p.length===2&&p[0].length<8){var ix=parseInt(p[0],10)&0xffff,id=parseInt(p[1],10)&0x7fff;if(ix<arr.length)arr[ix]=id;}}}
     }
-
-    renderer.render(scene, camera);
+    map[c.cx+","+c.cz]={cx:c.cx,cz:c.cz,yOff:yOff,yR:yR,data:arr};
+  }
+  return map;
 }
-
-async function loadReplay() {
-    const token = document.getElementById('token-field').value.trim();
-    if (!token) return;
-
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('token-error').textContent = '';
-
-    try {
-        const resp = await fetch(`${FIREBASE_URL}/replays/${encodeURIComponent(token)}.json`);
-        const data = await resp.json();
-        
-        if (!data) throw new Error('Replay non trovato o scaduto.');
-
-        replayData = data;
-        selectedPlayer = replayData.playerUuid;
-
-        document.getElementById('token-input').style.display = 'none';
-        document.getElementById('loading').style.display = 'none';
-        document.getElementById('controls').style.display = 'flex';
-        document.getElementById('info-panel').style.display = 'block';
-        document.getElementById('players-list').style.display = 'block';
-        document.getElementById('chat-panel').style.display = 'block';
-
-        document.getElementById('timeline').max = replayData.frames.length - 1;
-        document.getElementById('player-label').textContent = replayData.playerName || 'Player';
-
-        buildWorld();
-        updatePlayersList();
-        renderFrame(0);
-    } catch (e) {
-        document.getElementById('token-error').textContent = e.message;
-        document.getElementById('loading').style.display = 'none';
-    }
-}
-
-function buildWorld() {
-    blockMeshes.forEach(m => scene.remove(m));
-    blockMeshes = [];
-
-    if (!replayData.chunks) return;
-
-    const geo = new THREE.BoxGeometry(1, 1, 1);
-    
-    replayData.chunks.forEach(chunk => {
-        if (!chunk.blocks) return;
-        
-        const mat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
-        const instancedMesh = new THREE.InstancedMesh(geo, mat, chunk.blocks.length);
-        const dummy = new THREE.Object3D();
-        let count = 0;
-
-        chunk.blocks.forEach((id, idx) => {
-            if (id === 0) return;
-            const x = (chunk.cx * 16) + (idx % 16);
-            const z = (chunk.cz * 16) + Math.floor((idx / 16) % 16);
-            const y = Math.floor(idx / 256);
-
-            dummy.position.set(x, y, z);
-            dummy.updateMatrix();
-            instancedMesh.setMatrixAt(count++, dummy.matrix);
-        });
-
-        instancedMesh.instanceMatrix.needsUpdate = true;
-        scene.add(instancedMesh);
-        blockMeshes.push(instancedMesh);
-    });
-}
-
-function renderFrame(index) {
-    if (!replayData || !replayData.frames[index]) return;
-
-    const frame = replayData.frames[index];
-    document.getElementById('time-label').textContent = `${Math.floor(index / 20)}s`;
-
-    Object.keys(playerMeshes).forEach(uuid => {
-        scene.remove(playerMeshes[uuid]);
-        delete playerMeshes[uuid];
-    });
-
-    if (!frame.players) return;
-
-    Object.keys(frame.players).forEach(uuid => {
-        const p = frame.players[uuid];
-        
-        const group = new THREE.Group();
-        group.position.set(p.x, p.y, p.z);
-
-        const bodyGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6);
-        const bodyMat = new THREE.MeshLambertMaterial({ color: uuid === selectedPlayer ? 0x38bdf8 : 0xef4444 });
-        const body = new THREE.Mesh(bodyGeo, bodyMat);
-        body.position.y = 0.9;
-        group.add(body);
-
-        scene.add(group);
-        playerMeshes[uuid] = group;
-
-        if (uuid === selectedPlayer) {
-            document.getElementById('info-pos').textContent = `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`;
-            document.getElementById('info-speed').textContent = `${(Math.sqrt(p.vx*p.vx + p.vz*p.vz) || 0).toFixed(2)} m/s`;
-            document.getElementById('info-hp').textContent = p.hp ? `${p.hp}/20` : '-';
-            document.getElementById('info-held').textContent = p.held || 'Mano Vuota';
-
-            if (followTarget) {
-                controls.target.set(p.x, p.y + 1, p.z);
-            }
+function buildChunk(meshGlob,c){
+  var P=[],Cv=[];
+  var mins={}
+  for(var bx=0;bx<16;bx++)
+   for(var bz=0;bz<16;bz++)
+    for(var yy=0;yy<c.yR;yy++){
+      var id=c.data[(bx*c.yR+yy)*16+bz];if(!id)continue;
+      var wx=c.cx*16+bx,wz=c.cz*16+bz,wy=c.yOff+yy;
+      var shade=[1,.92,.75],[.8,.78,.72]]; // per face
+      var col=colorOf(id);
+      for(var f=0;f<6;f++){
+        var nb=blockAt(wx+FD[f][0],wy+FD[f][1],wz+FD[f][2]);
+        if(nb!==0)continue;
+        var k=SH[f];
+        var r=col.r*k[0],g=col.g*k[1],z2=col.b*k[2];
+        for(var t=0;t<6;t++){
+          var ci=FC[f][FV[f][t]];
+          P.push(wx+C[ci][0],wy+C[ci][1],wz+C[ci][2]);
+          Cv.push(r,g,bl);
         }
-    });
+      }
+    }
+  if(!P.length)return;
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute("position",new THREE.Float32BufferAttribute(P,3));
+  geo.setAttribute("color",new THREE.Float32BufferAttribute(Cv,3));
+  var m=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({vertexColors:true}));
+  gWorld.add(m);
 }
-
-function updatePlayersList() {
-    const container = document.getElementById('players-container');
-    container.innerHTML = '';
-    if (!replayData.frames[0] || !replayData.frames[0].players) return;
-
-    Object.keys(replayData.frames[0].players).forEach(uuid => {
-        const p = replayData.frames[0].players[uuid];
-        const div = document.createElement('div');
-        div.className = `player-entry ${uuid === selectedPlayer ? 'selected' : ''}`;
-        div.textContent = p.name || uuid.substring(0, 8);
-        div.onclick = () => {
-            selectedPlayer = uuid;
-            updatePlayersList();
-            renderFrame(Math.floor(currentFrame));
-        };
-        container.appendChild(div);
-    });
-}
-
-function togglePlay() {
-    isPlaying = !isPlaying;
-    document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
-}
-
-function seekFrame(val) {
-    currentFrame = parseInt(val);
-    renderFrame(currentFrame);
-}
-
-function skip(amount) {
-    currentFrame = Math.max(0, Math.min(replayData.frames.length - 1, currentFrame + amount));
-    document.getElementById('timeline').value = Math.floor(currentFrame);
-    renderFrame(Math.floor(currentFrame));
-}
-
-function changeSpeed() {
-    speedIdx = (speedIdx + 1) % speeds.length;
-    playSpeed = speeds[speedIdx];
-    document.getElementById('speed-label').textContent = `${playSpeed.toFixed(1)}x`;
-}
-
-function toggleFollow() {
-    followTarget = !followTarget;
-    document.getElementById('follow-btn').classList.toggle('active', followTarget);
-}
-
-init3D();
+...
+})();
 </script>
 </body>
 </html>
