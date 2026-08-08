@@ -254,18 +254,19 @@ var LEGACY={
   35:["#e8e8e8","Wool"],37:["#e8d83a","Dandelion"],38:["#e83a3a","Poppy"],
   39:["#6b8c42","Brown Mushroom"],40:["#e83a3a","Red Mushroom"],
   41:["#ffd95e","Gold Block"],42:["#d8d8d8","Iron Block"],
-  44:["#b05a4a","Slab"],45:["#b05a4a","Bricks"],
-  46:["#d94747","TNT"],47:["#8a744e","Bookshelf"],
+  43:["#8d8d8d","Double Slab"],44:["#8c8c6a","Iron Bars"],
+  45:["#b05a4a","Bricks"],46:["#d94747","TNT"],47:["#8a744e","Bookshelf"],
   48:["#5d6b4c","Mossy Cobblestone"],49:["#281a32","Obsidian"],
   50:["#ff6633","Torch"],53:["#b5915e","Oak Stairs"],
   54:["#8a744e","Chest"],56:["#4a9e9e","Diamond Ore"],
   57:["#4ae3cf","Diamond Block"],58:["#6b4d28","Crafting Table"],
   61:["#8a8a8a","Furnace"],62:["#8a8a8a","Burning Furnace"],
   67:["#7f7f7f","Cobblestone Stairs"],
-  73:["#c98848","Redstone Ore"],74:["#c98848","Redstone Ore"],
+  73:["#c98848","Redstone Ore"],
   78:["#ecf4f7","Snow Layer"],79:["#5586e0","Ice"],
   80:["#e2eef2","Snow Block"],81:["#2d8a4e","Cactus"],
   82:["#a9b0b8","Clay"],85:["#8a744e","Fence"],
+  77:["#8d8d8d","Stone Button"],
   86:["#d96d1e","Pumpkin"],87:["#5a2a0a","Netherrack"],
   88:["#6d5238","Soul Sand"],89:["#d9a123","Glowstone"],
   90:["#6d28a0","Nether Portal"],
@@ -283,6 +284,7 @@ var LEGACY={
   115:["#6d2828","Nether Wart"],
   120:["#d4c190","Enchantment Table"],
   121:["#d8cf9c","End Stone"],122:["#1a1a2e","Dragon Egg"],
+  123:["#d9a123","Redstone Lamp"],126:["#8a6a3a","Wooden Slab"],
   127:["#d96d1e","Melon Stairs"],
   128:["#d8c78a","Sandstone Stairs"],
   129:["#2f4f3a","Emerald Ore"],
@@ -290,28 +292,22 @@ var LEGACY={
   135:["#b5915e","Spruce Stairs"],136:["#7db44a","Spruce Fence"],
   139:["#8d8d8d","Stone Pressure Plate"],
   152:["#c93a3a","Redstone Block"],
-  154:["#8a8a8a","Hopper"],155:["#ececec","Quartz Block"],
+  154:["#8a8a8a","Hopper"],  155:["#ececec","Quartz Block"],
   156:["#ececec","Quartz Stairs"],
   159:["#d9d9d9","Terracotta"],
+  160:["#d8eff9","Glass Pane"],
   161:["#7a9a3a","Leaves"],162:["#a97441","Acacia Log"],
   163:["#b5915e","Acacia Stairs"],164:["#b5915e","Acacia Fence"],
-  170:["#b5915e","Hay Bale"],172:["#8a5a3a","Hardened Clay"],
+  166:["#ff3333","Barrier"],
+  170:["#b5915e","Hay Bale"],172:["#8a5a3a","Terracotta"],
   173:["#87b7e0","Packed Ice"],174:["#a1d4f4","Ice"],
+  175:["#3b7a2e","Double Plant"],
+  178:["#d8c78a","Smooth Stone Slab"],
   179:["#c77f3e","Red Sandstone"],
   180:["#c77f3e","Red Sandstone Stairs"],
-  188:["#8a744e","Spruce Fence Gate"],
-  155:["#ececec","Quartz Block"],
-  172:["#8a5a3a","Terracotta"],
-  24:["#d8c78a","Smooth Sandstone"],
-  178:["#d8c78a","Smooth Stone Slab"],
-  175:["#3b7a2e","Double Plant"],
-  176:["#e83a3a","Standing Banner"],177:["#e83a3a","Wall Banner"],
-  182:["#b05a4a","Brick Slab"],183:["#b5915e","Fence Gate"],
-  186:["#b5915e","Fence Gate"],187:["#b5915e","Fence Gate"],
-  190:["#b5915e","Fence Gate"],191:["#b5915e","Fence Gate"],
-  192:["#b5915e","Fence Gate"],
-  24:["#d8c78a","Sandstone"],
-  181:["#c77f3e","Red Sandstone Slab"]
+  181:["#c77f3e","Red Sandstone Slab"],
+  182:["#b05a4a","Brick Slab"],
+  188:["#8a744e","Spruce Fence Gate"]
 };
 (function(){for(var i=1;i<256;i++){if(!LEGACY[i])LEGACY[i]=["#7d7d7d","Block "+i];}})();
 function blockInfo(id){
@@ -450,6 +446,25 @@ function decodeChunks(lst){
   var maxChunks=1500,maxY=256;
   var totalNonAir=0,totalSkipped=0;
   var targetWorld=st.wName||"";
+  var playerChunkSet={};
+  var PADDING=3;
+  if(st.frames&&st.frames.length){
+    for(var fi=0;fi<st.frames.length;fi++){
+      var fr=st.frames[fi];if(!fr||!fr.players)continue;
+      for(var uid in fr.players){
+        var pp=fr.players[uid];
+        var pcx=Math.floor(num(pp.x)/16);
+        var pcz=Math.floor(num(pp.z)/16);
+        for(var dx=-PADDING;dx<=PADDING;dx++){
+          for(var dz=-PADDING;dz<=PADDING;dz++){
+            playerChunkSet[(pcx+dx)+","+(pcz+dz)]=1;
+          }
+        }
+      }
+    }
+  }
+  var useProximity=Object.keys(playerChunkSet).length>0;
+  if(useProximity)console.log("[FullPlay] Proximity filter: "+Object.keys(playerChunkSet).length+" player-proximate chunks");
   for(var i=0;i<lst.length;i++){
     var c=lst[i];if(!c)continue;
     if(c.cx==null||c.cz==null)continue;
@@ -474,7 +489,12 @@ function decodeChunks(lst){
     var chunkObj={cx:c.cx,cz:c.cz,yOff:yoff,yr:yr,data:arr,wn:wn};
     if(!st.allChunks[wn])st.allChunks[wn]={};
     st.allChunks[wn][c.cx+","+c.cz]=chunkObj;
-    var belongsToTarget=!wn||wn===targetWorld||!targetWorld;
+    var belongsToTarget=true;
+    if(useProximity){
+      belongsToTarget=!!playerChunkSet[c.cx+","+c.cz];
+    }else if(wn&&targetWorld){
+      belongsToTarget=(wn===targetWorld);
+    }
     if(belongsToTarget){
       if(Object.keys(st.chunkMap).length<maxChunks)
         st.chunkMap[c.cx+","+c.cz]=chunkObj;
@@ -484,17 +504,13 @@ function decodeChunks(lst){
   }
   var decoded=Object.keys(st.chunkMap).length;
   var worlds=Object.keys(st.allChunks);
-  console.log("[FullPlay] Decoded "+decoded+"/"+lst.length+" chunks ("+totalNonAir+" blocks, "+totalSkipped+" skipped for world='"+targetWorld+"')");
-  console.log("[FullPlay] Worlds found: "+worlds.join(", "));
+  console.log("[FullPlay] Decoded "+decoded+"/"+lst.length+" chunks ("+totalNonAir+" blocks, "+totalSkipped+" skipped)");
   if(decoded>0&&lst[0]){
     var sample=lst[0];
-    console.log("[FullPlay] Sample chunk: cx="+sample.cx+" cz="+sample.cz+" wn="+sample.wn+" yOff="+sample.yOff+" yRange="+sample.yRange);
-    if(sample.blocks&&sample.blocks.length>0){
-      console.log("[FullPlay] First 5 blocks:",sample.blocks.slice(0,5));
-    }
+    console.log("[FullPlay] Sample chunk: cx="+sample.cx+" cz="+sample.cz+" wn="+sample.wn);
   }
   if(decoded===0&&lst.length>0){
-    console.warn("[FullPlay] No chunks decoded! Sample data:",JSON.stringify(lst[0]).substring(0,500));
+    console.warn("[FullPlay] No chunks decoded!");
   }
 }
 function ck(x,z){return st.chunkMap[x+","+z];}
