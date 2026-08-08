@@ -1,2900 +1,358 @@
-```html
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Minecraft Replay Viewer</title>
-
+<title>KryonAC FullPlay - 3D Replay Viewer</title>
 <style>
-* {
-    box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #0f172a; color: #f8fafc; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
+#canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+canvas { display: block; }
 
-html,
-body {
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    overflow: hidden;
-    background: #05070d;
-    color: #fff;
-    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
+#ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#ui-overlay > * { pointer-events: auto; }
 
-button,
-input {
-    font: inherit;
-}
-
-canvas {
-    position: fixed;
-    inset: 0;
-    display: block;
-}
-
-#ui-overlay {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 10;
-}
-
-#ui-overlay > * {
-    pointer-events: auto;
-}
-
-/* ---------------------------------------------------------
-   TOKEN SCREEN
---------------------------------------------------------- */
-
+/* Modal Input Token */
 #token-input {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: min(460px, calc(100vw - 32px));
-    padding: 34px;
-    text-align: center;
-
-    background:
-        linear-gradient(
-            180deg,
-            rgba(20, 30, 55, .96),
-            rgba(10, 15, 30, .96)
-        );
-
-    border: 1px solid rgba(0, 214, 255, .35);
-    border-radius: 16px;
-    box-shadow:
-        0 25px 80px rgba(0,0,0,.55),
-        inset 0 1px 0 rgba(255,255,255,.04);
-
-    backdrop-filter: blur(18px);
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(30, 41, 59, 0.95); border: 1px solid #38bdf8; border-radius: 12px;
+    padding: 30px; text-align: center; width: 380px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    backdrop-filter: blur(8px);
 }
-
-#token-input h1 {
-    margin: 0 0 8px;
-    color: #00d6ff;
-    font-size: 25px;
-    letter-spacing: -.4px;
-}
-
-#token-input p {
-    margin: 0 0 22px;
-    color: #8993a7;
-    font-size: 13px;
-    line-height: 1.5;
-}
-
+#token-input h1 { color: #38bdf8; font-size: 22px; margin-bottom: 6px; font-weight: 700; }
+#token-input p { color: #94a3b8; font-size: 13px; margin-bottom: 18px; }
 #token-input input {
-    width: 100%;
-    height: 46px;
-    padding: 0 14px;
-
-    border: 1px solid #263b63;
-    border-radius: 8px;
-
-    outline: none;
-    background: #080d1d;
-    color: #fff;
-
-    text-align: center;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    letter-spacing: 1.5px;
-
-    transition: border-color .15s, box-shadow .15s;
+    width: 100%; padding: 10px; border: 1px solid #334155; border-radius: 6px;
+    background: #0f172a; color: #fff; font-size: 15px; text-align: center;
+    font-family: monospace; letter-spacing: 2px; outline: none;
 }
-
-#token-input input:focus {
-    border-color: #00d6ff;
-    box-shadow: 0 0 0 3px rgba(0,214,255,.10);
-}
-
+#token-input input:focus { border-color: #38bdf8; }
 #token-input button {
-    margin-top: 13px;
-    min-width: 130px;
-    height: 40px;
-
-    border: 1px solid #00d6ff;
-    border-radius: 8px;
-
-    background: #0f3460;
-    color: #00d6ff;
-
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-
-    transition:
-        background .15s,
-        color .15s,
-        transform .15s;
+    margin-top: 12px; width: 100%; padding: 10px; background: #38bdf8; color: #0f172a;
+    border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; transition: 0.2s;
 }
+#token-input button:hover { background: #0284c7; color: #fff; }
 
-#token-input button:hover {
-    background: #00d6ff;
-    color: #06101b;
-    transform: translateY(-1px);
-}
-
-/* ---------------------------------------------------------
-   PANELS
---------------------------------------------------------- */
-
-.panel {
-    background: rgba(12, 18, 34, .84);
-    border: 1px solid rgba(71, 105, 157, .45);
-    border-radius: 11px;
-    box-shadow: 0 12px 35px rgba(0,0,0,.22);
-    backdrop-filter: blur(12px);
-}
-
-#players-list {
-    position: absolute;
-    top: 15px;
-    left: 15px;
-
-    width: 230px;
-    padding: 14px;
-
-    font-size: 12px;
-}
-
-#players-list h3,
-#info-panel h3 {
-    margin: 0 0 10px;
-    color: #00d6ff;
-    font-size: 14px;
-}
-
-#players-container {
-    max-height: 50vh;
-    overflow-y: auto;
-}
-
-.player-entry {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 2px 8px;
-
-    padding: 7px 8px;
-    margin: 3px 0;
-
-    border-radius: 7px;
-    cursor: pointer;
-
-    transition: background .12s;
-}
-
-.player-entry:hover {
-    background: rgba(0,214,255,.08);
-}
-
-.player-entry.selected {
-    background: rgba(0,214,255,.15);
-    box-shadow: inset 3px 0 #00d6ff;
-}
-
-.player-name {
-    color: #e7edf8;
-    font-weight: 650;
-}
-
-.player-hp {
-    color: #ff5d67;
-    font-family: ui-monospace, monospace;
-}
-
-.player-pos {
-    grid-column: 1 / -1;
-    color: #7e899d;
-    font-family: ui-monospace, monospace;
-    font-size: 10px;
-}
-
-#info-panel {
-    position: absolute;
-    top: 15px;
-    right: 15px;
-
-    width: 310px;
-    max-height: 78vh;
-    overflow-y: auto;
-
-    padding: 14px;
-
-    font-size: 12px;
-}
-
-.info-row {
-    display: grid;
-    grid-template-columns: 105px 1fr;
-    gap: 8px;
-
-    padding: 4px 0;
-    border-bottom: 1px solid rgba(255,255,255,.035);
-}
-
-.info-label {
-    color: #7f899d;
-}
-
-.info-value {
-    color: #e2e7ef;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    text-align: right;
-    overflow-wrap: anywhere;
-}
-
-/* ---------------------------------------------------------
-   CHAT
---------------------------------------------------------- */
-
-#chat-panel {
-    position: absolute;
-    left: 15px;
-    bottom: 125px;
-
-    width: 370px;
-    max-height: 210px;
-
-    padding: 11px;
-
-    overflow-y: auto;
-
-    background: rgba(8, 13, 25, .78);
-    border: 1px solid rgba(71,105,157,.38);
-    border-radius: 10px;
-
-    font-size: 12px;
-    backdrop-filter: blur(10px);
-}
-
-.chat-msg {
-    margin: 3px 0;
-    line-height: 1.35;
-}
-
-.chat-player {
-    color: #00d6ff;
-    font-weight: 700;
-}
-
-.chat-text {
-    color: #d0d5df;
-}
-
-/* ---------------------------------------------------------
-   CONTROLS
---------------------------------------------------------- */
-
+/* Controlli Inferiori */
 #controls {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-
-    padding: 18px 25px 22px;
-
-    background:
-        linear-gradient(
-            transparent,
-            rgba(3,5,10,.92) 42%
-        );
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(15, 23, 42, 0.95));
+    padding: 15px 25px; display: flex; flex-direction: column; gap: 10px;
 }
-
-#timeline-container {
-    width: 100%;
-    margin-bottom: 10px;
-}
-
 #timeline {
-    width: 100%;
-    height: 7px;
-
-    appearance: none;
-    border-radius: 999px;
-    outline: none;
-
-    background: rgba(255,255,255,.12);
-    cursor: pointer;
+    width: 100%; height: 6px; -webkit-appearance: none; background: #334155;
+    border-radius: 3px; outline: none; cursor: pointer;
 }
-
 #timeline::-webkit-slider-thumb {
-    appearance: none;
-
-    width: 16px;
-    height: 16px;
-
-    border-radius: 50%;
-    border: 2px solid #071019;
-
-    background: #00d6ff;
-    box-shadow: 0 0 15px rgba(0,214,255,.5);
-
-    cursor: pointer;
+    -webkit-appearance: none; width: 14px; height: 14px; background: #38bdf8;
+    border-radius: 50%; cursor: pointer;
 }
-
-#timeline::-moz-range-thumb {
-    width: 16px;
-    height: 16px;
-
-    border-radius: 50%;
-    border: 2px solid #071019;
-
-    background: #00d6ff;
-    cursor: pointer;
-}
-
-#controls-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-
+#controls-row { display: flex; align-items: center; gap: 10px; }
 #controls-row button {
-    height: 32px;
-    padding: 0 11px;
-
-    border: 1px solid rgba(0,214,255,.45);
-    border-radius: 6px;
-
-    background: rgba(15,52,96,.75);
-    color: #00d6ff;
-
-    cursor: pointer;
-    font-size: 12px;
-    font-weight: 600;
-
-    transition:
-        background .12s,
-        color .12s,
-        border-color .12s;
+    background: #1e293b; border: 1px solid #334155; color: #38bdf8;
+    padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600;
 }
+#controls-row button:hover { background: #38bdf8; color: #0f172a; }
+#controls-row button.active { background: #0284c7; color: #fff; border-color: #0284c7; }
+#time-label { color: #94a3b8; font-size: 12px; font-family: monospace; }
+#player-label { color: #38bdf8; font-size: 13px; font-weight: bold; margin-left: 10px; }
 
-#controls-row button:hover {
-    background: #00d6ff;
-    color: #06101b;
-    border-color: #00d6ff;
+/* Pannelli */
+#info-panel, #players-list, #chat-panel {
+    position: absolute; background: rgba(30, 41, 59, 0.9); border: 1px solid #334155;
+    border-radius: 8px; padding: 12px; font-size: 12px; backdrop-filter: blur(4px);
 }
+#info-panel { top: 15px; right: 15px; width: 260px; max-height: 75vh; overflow-y: auto; }
+#players-list { top: 15px; left: 15px; width: 200px; }
+#chat-panel { bottom: 90px; left: 15px; width: 300px; max-height: 150px; overflow-y: auto; }
 
-#controls-row button.active {
-    background: #00d6ff;
-    color: #06101b;
-}
+.panel-title { color: #38bdf8; font-size: 13px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+.info-row { display: flex; justify-content: space-between; margin: 3px 0; }
+.info-label { color: #94a3b8; }
+.info-value { color: #f8fafc; font-family: monospace; }
 
-#time-label,
-#speed-label {
-    color: #8b96aa;
-    font-size: 11px;
-    font-family: ui-monospace, monospace;
-    white-space: nowrap;
-}
+.player-entry { padding: 5px; cursor: pointer; border-radius: 4px; margin-bottom: 2px; }
+.player-entry:hover { background: rgba(56, 189, 248, 0.1); }
+.player-entry.selected { background: rgba(56, 189, 248, 0.2); font-weight: bold; }
 
-#time-label {
-    min-width: 95px;
-}
-
-#player-label {
-    color: #00d6ff;
-    font-size: 13px;
-    font-weight: 700;
-    white-space: nowrap;
-}
-
-/* ---------------------------------------------------------
-   LOADING / ERROR / TOOLTIP
---------------------------------------------------------- */
-
-#loading {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-
-    display: none;
-
-    padding: 13px 18px;
-
-    background: rgba(5,9,18,.88);
-    border: 1px solid rgba(0,214,255,.3);
-    border-radius: 9px;
-
-    color: #00d6ff;
-    font-size: 14px;
-
-    box-shadow: 0 15px 50px rgba(0,0,0,.4);
-}
-
-#block-tooltip {
-    display: none;
-
-    position: absolute;
-    right: 15px;
-    bottom: 125px;
-
-    padding: 8px 11px;
-
-    background: rgba(8,13,25,.92);
-    border: 1px solid rgba(0,214,255,.3);
-    border-radius: 7px;
-
-    color: #e0e6ef;
-    font-size: 11px;
-    font-family: ui-monospace, monospace;
-
-    pointer-events: none;
-}
-
-#error-display {
-    display: none;
-
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-
-    width: min(600px, calc(100vw - 32px));
-    max-height: 70vh;
-    overflow: auto;
-
-    padding: 20px;
-
-    background: rgba(100,0,0,.92);
-    border: 1px solid #ff5d67;
-    border-radius: 12px;
-
-    color: #fff;
-    font-size: 13px;
-    font-family: ui-monospace, monospace;
-
-    white-space: pre-wrap;
-    box-shadow: 0 25px 80px rgba(0,0,0,.5);
-}
-
-/* ---------------------------------------------------------
-   RESPONSIVE
---------------------------------------------------------- */
-
-@media (max-width: 900px) {
-    #players-list {
-        width: 190px;
-    }
-
-    #info-panel {
-        width: 260px;
-    }
-
-    #controls-row {
-        overflow-x: auto;
-    }
-
-    #chat-panel {
-        width: min(330px, calc(100vw - 30px));
-    }
-}
-
-@media (max-width: 650px) {
-    #players-list,
-    #info-panel {
-        display: none !important;
-    }
-
-    #controls {
-        padding: 12px 10px 15px;
-    }
-
-    #controls-row {
-        gap: 5px;
-    }
-
-    #controls-row button {
-        padding: 0 8px;
-    }
-
-    #chat-panel {
-        bottom: 115px;
-        max-height: 150px;
-    }
-}
+#loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #38bdf8; font-size: 16px; font-weight: bold; display: none; }
 </style>
 </head>
-
 <body>
 
-<canvas id="minecraft-canvas"></canvas>
+<div id="canvas-container"></div>
 
 <div id="ui-overlay">
-
-    <div id="token-input" class="panel">
-        <h1>Minecraft Replay Viewer</h1>
-        <p>
-            Inserisci il token del replay oppure un URL/JSON compatibile.
-            La versione Minecraft viene rilevata automaticamente quando
-            è presente nei dati del replay.
-        </p>
-
-        <input
-            id="token"
-            type="text"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="Replay token / URL"
-        >
-
-        <button id="load-btn" onclick="loadReplayFromInput()">
-            Load Replay
-        </button>
+    <div id="token-input">
+        <h1>KryonAC FullPlay</h1>
+        <p>Inserisci il Token Replay per iniziare</p>
+        <input type="text" id="token-field" placeholder="Es. a1b2c3d4e5f6" maxlength="12" onkeydown="if(event.key==='Enter') loadReplay()">
+        <button onclick="loadReplay()">Carica Replay</button>
+        <div id="token-error" style="color:#ef4444; margin-top:8px; font-size:12px;"></div>
     </div>
 
-    <div id="players-list" class="panel" style="display:none">
-        <h3>Players</h3>
+    <div id="players-list" style="display:none">
+        <div class="panel-title">Giocatori</div>
         <div id="players-container"></div>
     </div>
 
-    <div id="info-panel" class="panel" style="display:none">
-        <h3 id="info-title">Player Info</h3>
-
-        <div class="info-row">
-            <span class="info-label">World</span>
-            <span class="info-value" id="info-world">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">MC Time</span>
-            <span class="info-value" id="info-mctime">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Position</span>
-            <span class="info-value" id="info-pos">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Velocity</span>
-            <span class="info-value" id="info-vel">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Yaw / Pitch</span>
-            <span class="info-value" id="info-look">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Health</span>
-            <span class="info-value" id="info-hp">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Food / Sat</span>
-            <span class="info-value" id="info-food">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Ground</span>
-            <span class="info-value" id="info-ground">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Gamemode</span>
-            <span class="info-value" id="info-gm">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Held Item</span>
-            <span class="info-value" id="info-held">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Speed</span>
-            <span class="info-value" id="info-speed">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Armor</span>
-            <span class="info-value" id="info-armor">-</span>
-        </div>
-
-        <div class="info-row">
-            <span class="info-label">Effects</span>
-            <span class="info-value" id="info-effects">-</span>
-        </div>
+    <div id="info-panel" style="display:none">
+        <div class="panel-title" id="info-title">Info Giocatore</div>
+        <div class="info-row"><span class="info-label">Mondo</span><span class="info-value" id="info-world">-</span></div>
+        <div class="info-row"><span class="info-label">Posizione</span><span class="info-value" id="info-pos">-</span></div>
+        <div class="info-row"><span class="info-label">Velocità</span><span class="info-value" id="info-speed">-</span></div>
+        <div class="info-row"><span class="info-label">Vita</span><span class="info-value" id="info-hp">-</span></div>
+        <div class="info-row"><span class="info-label">Item in Mano</span><span class="info-value" id="info-held">-</span></div>
     </div>
 
-    <div id="chat-panel" style="display:none"></div>
+    <div id="chat-panel" style="display:none">
+        <div class="panel-title">Chat Log</div>
+        <div id="chat-container"></div>
+    </div>
 
     <div id="controls" style="display:none">
-
-        <div id="timeline-container">
-            <input
-                type="range"
-                id="timeline"
-                min="0"
-                max="100"
-                value="0"
-                step="0.01"
-            >
-        </div>
-
+        <input type="range" id="timeline" min="0" max="100" value="0" oninput="seekFrame(this.value)">
         <div id="controls-row">
-
-            <button onclick="skipBack()" title="Back 5s">⏮</button>
-
-            <button
-                id="play-btn"
-                onclick="togglePlay()"
-                title="Play/Pause"
-            >▶</button>
-
-            <button
-                onclick="skipForward()"
-                title="Forward 5s"
-            >⏭</button>
-
-            <span id="time-label">0:00 / 0:00</span>
-
+            <button onclick="skip(-100)">⏮</button>
+            <button id="play-btn" onclick="togglePlay()">▶</button>
+            <button onclick="skip(100)">⏭</button>
+            <span id="time-label">00:00</span>
             <span id="player-label">-</span>
-
             <span style="flex:1"></span>
-
-            <button onclick="changeSpeed(-1)">−</button>
-            <span id="speed-label">1.0x</span>
-            <button onclick="changeSpeed(1)">+</button>
-
-            <button
-                id="follow-btn"
-                onclick="toggleFollow()"
-                class="active"
-            >Follow</button>
-
-            <button onclick="resetCamera()">Reset View</button>
-
-            <button
-                id="names-btn"
-                onclick="toggleNames()"
-                class="active"
-            >Names</button>
-
-            <button
-                id="blocks-btn"
-                onclick="toggleBlockChanges()"
-                class="active"
-            >Blocks</button>
-
-            <button
-                id="trail-btn"
-                onclick="toggleTrail()"
-                class="active"
-            >Trail</button>
-
+            <button onclick="changeSpeed()">Velocità: <span id="speed-label">1.0x</span></button>
+            <button id="follow-btn" class="active" onclick="toggleFollow()">Segui Camera</button>
         </div>
     </div>
 
-    <div id="loading">
-        Loading replay data...
-    </div>
-
-    <div id="block-tooltip"></div>
-
-    <div id="error-display"></div>
-
+    <div id="loading">Caricamento Replay in corso...</div>
 </div>
 
-<script type="module">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-/*
-|--------------------------------------------------------------------------
-| Minecraft Replay Viewer
-|--------------------------------------------------------------------------
-|
-| IMPORTANT:
-|
-| This file contains the renderer/UI.
-|
-| The actual replay API is intentionally configurable below because
-| the original code supplied with this project did not contain an
-| API endpoint or a replay file parser.
-|
-|--------------------------------------------------------------------------
-*/
+<script>
+const FIREBASE_URL = "https://kryonac-fullplay-default-rtdb.europe-west1.firebasedatabase.app";
 
-import * as THREE from
-    "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+let scene, camera, renderer, controls;
+let replayData = null;
+let currentFrame = 0;
+let isPlaying = false;
+let playSpeed = 1.0;
+let followTarget = true;
+let selectedPlayer = null;
+let playerMeshes = {};
+let blockMeshes = [];
+const speeds = [0.5, 1.0, 1.5, 2.0];
+let speedIdx = 1;
 
-import { OrbitControls } from
-    "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js";
-
-
-/* ================================================================
-   CONFIGURATION
-================================================================ */
-
-const CONFIG = {
-
-    /*
-     * Change this to your actual replay endpoint.
-     *
-     * Examples:
-     *
-     * "/api/replay/"
-     * "https://your-domain.example/api/replay/"
-     *
-     * The token is appended automatically.
-     */
-    replayEndpoint: "/api/replay/",
-
-    /*
-     * Optional asset endpoint.
-     *
-     * Expected structure is discussed below in loadVersionAssets().
-     */
-    assetEndpoint: "/assets/minecraft/",
-
-    /*
-     * Rendering settings.
-     */
-    renderDistance: 10,
-
-    maxPixelRatio: 2,
-
-    ambientLight: 1.8,
-
-    chunkSize: 16,
-
-    blockSize: 1,
-
-    /*
-     * Camera.
-     */
-    cameraDistance: 8,
-
-    cameraHeight: 4
+const BLOCK_COLORS = {
+    1: 0x808080, 2: 0x557a2b, 3: 0x866043, 4: 0x555555, 5: 0x9c7849, 
+    8: 0x2e5c8a, 9: 0x2e5c8a, 10: 0xd05819, 11: 0xd05819, 12: 0xd8d098, 18: 0x2d5e1e
 };
 
+function init3D() {
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a);
 
-/* ================================================================
-   STATE
-================================================================ */
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 20, 30);
 
-const state = {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-    loaded: false,
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    scene.add(ambientLight);
 
-    playing: false,
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+    dirLight.position.set(50, 100, 50);
+    scene.add(dirLight);
 
-    currentTime: 0,
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
 
-    duration: 0,
+    window.addEventListener('resize', onResize);
+    animate();
+}
 
-    speed: 1,
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
 
-    selectedPlayer: null,
+function animate() {
+    requestAnimationFrame(animate);
+    if (controls) controls.update();
 
-    follow: true,
+    if (isPlaying && replayData && replayData.frames) {
+        currentFrame += playSpeed;
+        if (currentFrame >= replayData.frames.length) currentFrame = 0;
+        document.getElementById('timeline').value = Math.floor(currentFrame);
+        renderFrame(Math.floor(currentFrame));
+    }
 
-    names: true,
+    renderer.render(scene, camera);
+}
 
-    blocks: true,
+async function loadReplay() {
+    const token = document.getElementById('token-field').value.trim();
+    if (!token) return;
 
-    trail: true,
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('token-error').textContent = '';
 
-    version: null,
+    try {
+        const resp = await fetch(`${FIREBASE_URL}/replays/${encodeURIComponent(token)}.json`);
+        const data = await resp.json();
+        
+        if (!data) throw new Error('Replay non trovato o scaduto.');
 
-    replay: null,
+        replayData = data;
+        selectedPlayer = replayData.playerUuid;
 
-    players: new Map(),
+        document.getElementById('token-input').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('controls').style.display = 'flex';
+        document.getElementById('info-panel').style.display = 'block';
+        document.getElementById('players-list').style.display = 'block';
+        document.getElementById('chat-panel').style.display = 'block';
 
-    blockChanges: [],
+        document.getElementById('timeline').max = replayData.frames.length - 1;
+        document.getElementById('player-label').textContent = replayData.playerName || 'Player';
 
-    chat: [],
+        buildWorld();
+        updatePlayersList();
+        renderFrame(0);
+    } catch (e) {
+        document.getElementById('token-error').textContent = e.message;
+        document.getElementById('loading').style.display = 'none';
+    }
+}
 
-    cameraTarget: new THREE.Vector3(),
+function buildWorld() {
+    blockMeshes.forEach(m => scene.remove(m));
+    blockMeshes = [];
 
-    trailPoints: [],
+    if (!replayData.chunks) return;
 
-    materials: new Map(),
+    const geo = new THREE.BoxGeometry(1, 1, 1);
+    
+    replayData.chunks.forEach(chunk => {
+        if (!chunk.blocks) return;
+        
+        const mat = new THREE.MeshLambertMaterial({ color: 0x557a2b });
+        const instancedMesh = new THREE.InstancedMesh(geo, mat, chunk.blocks.length);
+        const dummy = new THREE.Object3D();
+        let count = 0;
 
-    textureCache: new Map(),
+        chunk.blocks.forEach((id, idx) => {
+            if (id === 0) return;
+            const x = (chunk.cx * 16) + (idx % 16);
+            const z = (chunk.cz * 16) + Math.floor((idx / 16) % 16);
+            const y = Math.floor(idx / 256);
 
-    blockGeometryCache: new Map()
-};
+            dummy.position.set(x, y, z);
+            dummy.updateMatrix();
+            instancedMesh.setMatrixAt(count++, dummy.matrix);
+        });
 
+        instancedMesh.instanceMatrix.needsUpdate = true;
+        scene.add(instancedMesh);
+        blockMeshes.push(instancedMesh);
+    });
+}
 
-/* ================================================================
-   THREE.JS
-================================================================ */
+function renderFrame(index) {
+    if (!replayData || !replayData.frames[index]) return;
 
-const canvas =
-    document.getElementById("minecraft-canvas");
+    const frame = replayData.frames[index];
+    document.getElementById('time-label').textContent = `${Math.floor(index / 20)}s`;
 
-const renderer =
-    new THREE.WebGLRenderer({
-        canvas,
-        antialias: true,
-        alpha: false,
-        powerPreference: "high-performance"
+    Object.keys(playerMeshes).forEach(uuid => {
+        scene.remove(playerMeshes[uuid]);
+        delete playerMeshes[uuid];
     });
 
-renderer.setPixelRatio(
-    Math.min(
-        window.devicePixelRatio || 1,
-        CONFIG.maxPixelRatio
-    )
-);
-
-renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-);
-
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-
-renderer.toneMapping =
-    THREE.ACESFilmicToneMapping;
-
-renderer.toneMappingExposure = 1.15;
-
-
-const scene = new THREE.Scene();
-
-scene.background =
-    new THREE.Color(0x87b9e8);
-
-scene.fog =
-    new THREE.Fog(0x87b9e8, 35, 180);
-
-
-const camera =
-    new THREE.PerspectiveCamera(
-        70,
-        window.innerWidth / window.innerHeight,
-        .05,
-        1000
-    );
-
-camera.position.set(
-    10,
-    7,
-    10
-);
-
-
-const controls =
-    new OrbitControls(
-        camera,
-        renderer.domElement
-    );
-
-controls.enableDamping = true;
-controls.dampingFactor = .08;
-
-controls.minDistance = 1;
-controls.maxDistance = 300;
-
-controls.target.set(0, 0, 0);
-
-
-/* ================================================================
-   LIGHTING
-================================================================ */
-
-const hemi =
-    new THREE.HemisphereLight(
-        0xddeeff,
-        0x445566,
-        1.8
-    );
-
-scene.add(hemi);
-
-
-const sun =
-    new THREE.DirectionalLight(
-        0xffffff,
-        2.2
-    );
-
-sun.position.set(
-    60,
-    100,
-    30
-);
-
-sun.castShadow = true;
-
-sun.shadow.mapSize.set(
-    2048,
-    2048
-);
-
-sun.shadow.camera.left = -100;
-sun.shadow.camera.right = 100;
-sun.shadow.camera.top = 100;
-sun.shadow.camera.bottom = -100;
-
-scene.add(sun);
-
-
-/* ================================================================
-   WORLD
-================================================================ */
-
-const worldGroup =
-    new THREE.Group();
-
-worldGroup.name = "MinecraftWorld";
-
-scene.add(worldGroup);
-
-
-const playersGroup =
-    new THREE.Group();
-
-playersGroup.name = "Players";
-
-scene.add(playersGroup);
-
-
-const trailGroup =
-    new THREE.Group();
-
-trailGroup.name = "Trails";
-
-scene.add(trailGroup);
-
-
-/* ================================================================
-   HELPERS
-================================================================ */
-
-function $(id) {
-    return document.getElementById(id);
-}
-
-
-function show(id) {
-    $(id).style.display = "";
-}
-
-
-function hide(id) {
-    $(id).style.display = "none";
-}
-
-
-function setLoading(text) {
-
-    $("loading").textContent = text;
-
-    show("loading");
-}
-
-
-function hideLoading() {
-    hide("loading");
-}
-
-
-function showError(error) {
-
-    console.error(error);
-
-    $("error-display").textContent =
-        error instanceof Error
-            ? error.stack || error.message
-            : String(error);
-
-    show("error-display");
-
-    hideLoading();
-}
-
-
-function clamp(value, min, max) {
-    return Math.max(min, Math.min(max, value));
-}
-
-
-function formatTime(seconds) {
-
-    seconds = Math.max(0, Number(seconds) || 0);
-
-    const minutes =
-        Math.floor(seconds / 60);
-
-    const secs =
-        Math.floor(seconds % 60)
-            .toString()
-            .padStart(2, "0");
-
-    return `${minutes}:${secs}`;
-}
-
-
-function disposeObject(object) {
-
-    object.traverse(child => {
-
-        if (child.geometry) {
-            child.geometry.dispose();
-        }
-
-        if (child.material) {
-
-            const materials =
-                Array.isArray(child.material)
-                    ? child.material
-                    : [child.material];
-
-            for (const material of materials) {
-
-                if (material.map) {
-                    /*
-                     * Do not dispose shared cached textures.
-                     */
-                }
-
-                material.dispose();
+    if (!frame.players) return;
+
+    Object.keys(frame.players).forEach(uuid => {
+        const p = frame.players[uuid];
+        
+        const group = new THREE.Group();
+        group.position.set(p.x, p.y, p.z);
+
+        const bodyGeo = new THREE.BoxGeometry(0.6, 1.8, 0.6);
+        const bodyMat = new THREE.MeshLambertMaterial({ color: uuid === selectedPlayer ? 0x38bdf8 : 0xef4444 });
+        const body = new THREE.Mesh(bodyGeo, bodyMat);
+        body.position.y = 0.9;
+        group.add(body);
+
+        scene.add(group);
+        playerMeshes[uuid] = group;
+
+        if (uuid === selectedPlayer) {
+            document.getElementById('info-pos').textContent = `${p.x.toFixed(1)}, ${p.y.toFixed(1)}, ${p.z.toFixed(1)}`;
+            document.getElementById('info-speed').textContent = `${(Math.sqrt(p.vx*p.vx + p.vz*p.vz) || 0).toFixed(2)} m/s`;
+            document.getElementById('info-hp').textContent = p.hp ? `${p.hp}/20` : '-';
+            document.getElementById('info-held').textContent = p.held || 'Mano Vuota';
+
+            if (followTarget) {
+                controls.target.set(p.x, p.y + 1, p.z);
             }
         }
     });
 }
 
-
-/* ================================================================
-   REPLAY LOADING
-================================================================ */
-
-window.loadReplayFromInput = async function() {
-
-    const input =
-        $("token").value.trim();
-
-    if (!input) {
-        showError("Inserisci un replay token o URL.");
-        return;
-    }
-
-    hide("token-input");
-    hide("error-display");
-
-    setLoading("Loading replay data...");
-
-    try {
-
-        const replay =
-            await fetchReplay(input);
-
-        await initializeReplay(replay);
-
-    } catch (error) {
-
-        showError(error);
-
-        show("token-input");
-    }
-};
-
-
-async function fetchReplay(input) {
-
-    /*
-     * Direct JSON URL.
-     */
-    if (
-        input.startsWith("http://") ||
-        input.startsWith("https://") ||
-        input.endsWith(".json")
-    ) {
-
-        const response =
-            await fetch(input);
-
-        if (!response.ok) {
-            throw new Error(
-                `Replay request failed: ${response.status}`
-            );
-        }
-
-        return await response.json();
-    }
-
-
-    /*
-     * Inline JSON.
-     */
-    if (
-        input.startsWith("{") ||
-        input.startsWith("[")
-    ) {
-
-        return JSON.parse(input);
-    }
-
-
-    /*
-     * Token endpoint.
-     */
-    const url =
-        CONFIG.replayEndpoint +
-        encodeURIComponent(input);
-
-    const response =
-        await fetch(url, {
-            headers: {
-                "Accept": "application/json"
-            }
-        });
-
-    if (!response.ok) {
-
-        throw new Error(
-            `Unable to load replay (${response.status}).\n\n` +
-            `Endpoint used:\n${url}\n\n` +
-            `Configure CONFIG.replayEndpoint with your actual API.`
-        );
-    }
-
-    return await response.json();
-}
-
-
-/* ================================================================
-   REPLAY INITIALIZATION
-================================================================ */
-
-async function initializeReplay(replay) {
-
-    state.replay = replay;
-
-    state.version =
-        detectMinecraftVersion(replay);
-
-    state.duration =
-        detectReplayDuration(replay);
-
-    state.currentTime = 0;
-
-    state.players.clear();
-
-    state.blockChanges =
-        Array.isArray(replay.blockChanges)
-            ? replay.blockChanges
-            : [];
-
-    state.chat =
-        Array.isArray(replay.chat)
-            ? replay.chat
-            : [];
-
-
-    setLoading(
-        state.version
-            ? `Loading Minecraft ${state.version} assets...`
-            : "Loading Minecraft assets..."
-    );
-
-
-    await loadVersionAssets(
-        state.version
-    );
-
-
-    buildWorld(
-        replay
-    );
-
-
-    buildPlayers(
-        replay
-    );
-
-
-    renderChat(
-        replay
-    );
-
-
-    populatePlayersList();
-
-
-    $("timeline").max =
-        Math.max(1, state.duration);
-
-    $("timeline").value = 0;
-
-
-    show("players-list");
-    show("info-panel");
-    show("chat-panel");
-    show("controls");
-
-
-    state.loaded = true;
-
-    hideLoading();
-
-    updateReplayUI();
-
-    requestAnimationFrame(animationLoop);
-}
-
-
-/* ================================================================
-   VERSION DETECTION
-================================================================ */
-
-function detectMinecraftVersion(replay) {
-
-    return (
-        replay.version ||
-        replay.minecraftVersion ||
-        replay.serverVersion ||
-        replay.protocolVersion ||
-        replay.meta?.version ||
-        replay.metadata?.minecraftVersion ||
-        null
-    );
-}
-
-
-function detectReplayDuration(replay) {
-
-    if (Number.isFinite(replay.duration)) {
-        return Number(replay.duration);
-    }
-
-    if (Number.isFinite(replay.length)) {
-        return Number(replay.length);
-    }
-
-    if (Array.isArray(replay.events)) {
-
-        let max = 0;
-
-        for (const event of replay.events) {
-
-            const t =
-                Number(
-                    event.time ??
-                    event.timestamp ??
-                    event.t ??
-                    0
-                );
-
-            max = Math.max(max, t);
-        }
-
-        return max;
-    }
-
-    return 0;
-}
-
-
-/* ================================================================
-   VERSION ASSETS
-================================================================
-   Expected optional asset structure:
-
-   /assets/minecraft/<version>/
-       blocks.json
-       textures/
-           ...
-   
-   The actual vanilla asset files can be generated from the
-   appropriate Minecraft client/resource pack.
-
-   The renderer does NOT assume that a modern texture layout is
-   compatible with an old Minecraft version.
-================================================================ */
-
-async function loadVersionAssets(version) {
-
-    state.textureCache.clear();
-
-    state.materials.clear();
-
-
-    /*
-     * If no version was supplied, use fallback rendering.
-     */
-    if (!version) {
-        return;
-    }
-
-
-    const base =
-        CONFIG.assetEndpoint +
-        encodeURIComponent(version) +
-        "/";
-
-
-    try {
-
-        const response =
-            await fetch(
-                base + "blocks.json"
-            );
-
-        if (!response.ok) {
-            return;
-        }
-
-        const definitions =
-            await response.json();
-
-        state.blockDefinitions =
-            definitions;
-
-    } catch {
-
-        /*
-         * Asset metadata is optional.
-         * The renderer falls back to procedural textures.
-         */
-        state.blockDefinitions = {};
-    }
-}
-
-
-/* ================================================================
-   TEXTURES
-================================================================ */
-
-function makeFallbackTexture(
-    color = "#777777"
-) {
-
-    const canvas =
-        document.createElement("canvas");
-
-    canvas.width = 16;
-    canvas.height = 16;
-
-    const ctx =
-        canvas.getContext("2d");
-
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, 16, 16);
-
-    /*
-     * Pixelated noise/detail.
-     */
-    for (let y = 0; y < 16; y++) {
-
-        for (let x = 0; x < 16; x++) {
-
-            const n =
-                Math.random() * 20 - 10;
-
-            const v =
-                clamp(
-                    120 + n,
-                    0,
-                    255
-                );
-
-            ctx.fillStyle =
-                `rgb(${v},${v},${v})`;
-
-            if (Math.random() > .65) {
-                ctx.fillRect(x, y, 1, 1);
-            }
-        }
-    }
-
-
-    const texture =
-        new THREE.CanvasTexture(canvas);
-
-    texture.colorSpace =
-        THREE.SRGBColorSpace;
-
-    texture.magFilter =
-        THREE.NearestFilter;
-
-    texture.minFilter =
-        THREE.NearestMipmapNearestFilter;
-
-    texture.generateMipmaps = true;
-
-    return texture;
-}
-
-
-async function loadTexture(path) {
-
-    if (state.textureCache.has(path)) {
-        return state.textureCache.get(path);
-    }
-
-    const promise =
-        new Promise((resolve, reject) => {
-
-            const loader =
-                new THREE.TextureLoader();
-
-            loader.load(
-                path,
-                texture => {
-
-                    texture.colorSpace =
-                        THREE.SRGBColorSpace;
-
-                    texture.magFilter =
-                        THREE.NearestFilter;
-
-                    texture.minFilter =
-                        THREE.NearestMipmapNearestFilter;
-
-                    texture.generateMipmaps =
-                        true;
-
-                    resolve(texture);
-                },
-
-                undefined,
-
-                reject
-            );
-        });
-
-    state.textureCache.set(
-        path,
-        promise
-    );
-
-    return promise;
-}
-
-
-/* ================================================================
-   BLOCK MATERIALS
-================================================================ */
-
-function getBlockColor(blockId) {
-
-    const id =
-        String(blockId || "").toLowerCase();
-
-
-    if (id.includes("grass")) return "#69a84b";
-    if (id.includes("leaves")) return "#3f7d32";
-    if (id.includes("water")) return "#3f76e4";
-    if (id.includes("lava")) return "#ff6b18";
-    if (id.includes("stone")) return "#777777";
-    if (id.includes("cobblestone")) return "#666666";
-    if (id.includes("dirt")) return "#8b5a35";
-    if (id.includes("sand")) return "#d9c27c";
-    if (id.includes("gravel")) return "#85827c";
-    if (id.includes("oak")) return "#9a6b3e";
-    if (id.includes("log")) return "#765235";
-    if (id.includes("brick")) return "#a84d3b";
-    if (id.includes("glass")) return "#b7e8ff";
-    if (id.includes("snow")) return "#f0f5f5";
-    if (id.includes("ice")) return "#a6dff5";
-    if (id.includes("gold")) return "#f5c542";
-    if (id.includes("iron")) return "#d0d0d0";
-    if (id.includes("diamond")) return "#4ee4e8";
-    if (id.includes("emerald")) return "#27d66f";
-    if (id.includes("redstone")) return "#c92323";
-    if (id.includes("coal")) return "#252525";
-
-    return "#777777";
-}
-
-
-function getBlockMaterial(blockId) {
-
-    const key =
-        String(blockId);
-
-    if (state.materials.has(key)) {
-        return state.materials.get(key);
-    }
-
-
-    const material =
-        new THREE.MeshLambertMaterial({
-            color: getBlockColor(key),
-            side: THREE.FrontSide
-        });
-
-
-    const id =
-        key.toLowerCase();
-
-    if (
-        id.includes("glass") ||
-        id.includes("leaves") ||
-        id.includes("water") ||
-        id.includes("ice")
-    ) {
-
-        material.transparent = true;
-
-        material.opacity =
-            id.includes("glass")
-                ? .55
-                : .75;
-
-        material.depthWrite =
-            !id.includes("water");
-    }
-
-
-    state.materials.set(
-        key,
-        material
-    );
-
-    return material;
-}
-
-
-/* ================================================================
-   BLOCK GEOMETRY
-================================================================ */
-
-function getBlockGeometry(blockId) {
-
-    const id =
-        String(blockId);
-
-    if (state.blockGeometryCache.has(id)) {
-        return state.blockGeometryCache.get(id);
-    }
-
-    /*
-     * Base Minecraft cube.
-     *
-     * Special block-state geometry can be plugged in here using
-     * the version-specific model data.
-     */
-    const geometry =
-        new THREE.BoxGeometry(
-            1,
-            1,
-            1
-        );
-
-    state.blockGeometryCache.set(
-        id,
-        geometry
-    );
-
-    return geometry;
-}
-
-
-function createBlock(
-    blockId,
-    x,
-    y,
-    z
-) {
-
-    const mesh =
-        new THREE.Mesh(
-            getBlockGeometry(blockId),
-            getBlockMaterial(blockId)
-        );
-
-    mesh.position.set(
-        x + .5,
-        y + .5,
-        z + .5
-    );
-
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-
-    mesh.userData.blockId =
-        blockId;
-
-    return mesh;
-}
-
-
-/* ================================================================
-   WORLD BUILDING
-================================================================ */
-
-function clearGroup(group) {
-
-    while (group.children.length) {
-
-        const child =
-            group.children.pop();
-
-        disposeObject(child);
-    }
-}
-
-
-function buildWorld(replay) {
-
-    clearGroup(worldGroup);
-
-
-    /*
-     * Supported simple format:
-     *
-     * replay.blocks = [
-     *   {
-     *      x: 0,
-     *      y: 64,
-     *      z: 0,
-     *      id: "minecraft:grass_block"
-     *   }
-     * ]
-     *
-     * Chunk-based data can be adapted here without changing
-     * the UI.
-     */
-
-    const blocks =
-        Array.isArray(replay.blocks)
-            ? replay.blocks
-            : [];
-
-
-    const chunkGroups =
-        new Map();
-
-
-    for (const block of blocks) {
-
-        const x =
-            Number(block.x || 0);
-
-        const y =
-            Number(block.y || 0);
-
-        const z =
-            Number(block.z || 0);
-
-        const id =
-            block.id ||
-            block.block ||
-            block.type ||
-            "minecraft:stone";
-
-
-        const cx =
-            Math.floor(x / CONFIG.chunkSize);
-
-        const cz =
-            Math.floor(z / CONFIG.chunkSize);
-
-        const key =
-            `${cx},${cz}`;
-
-
-        let chunk =
-            chunkGroups.get(key);
-
-        if (!chunk) {
-
-            chunk =
-                new THREE.Group();
-
-            chunk.name =
-                `Chunk ${key}`;
-
-            chunkGroups.set(
-                key,
-                chunk
-            );
-
-            worldGroup.add(chunk);
-        }
-
-
-        chunk.add(
-            createBlock(
-                id,
-                x,
-                y,
-                z
-            )
-        );
-    }
-}
-
-
-/* ================================================================
-   PLAYERS
-================================================================ */
-
-function buildPlayers(replay) {
-
-    playersGroup.clear();
-
-    state.players.clear();
-
-
-    const players =
-        Array.isArray(replay.players)
-            ? replay.players
-            : [];
-
-
-    for (const data of players) {
-
-        const player =
-            createPlayer(data);
-
-        state.players.set(
-            data.id ??
-            data.uuid ??
-            data.name,
-            {
-                data,
-                object: player
-            }
-        );
-    }
-
-
-    if (
-        state.players.size &&
-        !state.selectedPlayer
-    ) {
-
-        state.selectedPlayer =
-            state.players.keys().next().value;
-    }
-}
-
-
-function createPlayer(data) {
-
-    const group =
-        new THREE.Group();
-
-    group.name =
-        data.name || "Player";
-
-
-    /*
-     * Simple Minecraft-like player.
-     *
-     * The player skin system can be added separately using the
-     * same version-aware asset mechanism as blocks.
-     */
-
-    const bodyMaterial =
-        new THREE.MeshLambertMaterial({
-            color: 0x4b72c9
-        });
-
-
-    const body =
-        new THREE.Mesh(
-            new THREE.BoxGeometry(
-                .6,
-                1.1,
-                .35
-            ),
-            bodyMaterial
-        );
-
-    body.position.y =
-        1.05;
-
-    body.castShadow = true;
-
-    group.add(body);
-
-
-    const headMaterial =
-        new THREE.MeshLambertMaterial({
-            color: 0xd49a72
-        });
-
-
-    const head =
-        new THREE.Mesh(
-            new THREE.BoxGeometry(
-                .55,
-                .55,
-                .55
-            ),
-            headMaterial
-        );
-
-    head.position.y =
-        1.88;
-
-    head.castShadow = true;
-
-    group.add(head);
-
-
-    group.userData.player =
-        data;
-
-
-    playersGroup.add(group);
-
-    return group;
-}
-
-
-/* ================================================================
-   PLAYER TIMELINE SAMPLING
-================================================================ */
-
-function getPlayerStateAt(
-    data,
-    time
-) {
-
-    /*
-     * Supported formats:
-     *
-     * data.frames
-     * data.timeline
-     * data.position
-     *
-     * The function deliberately accepts several common structures.
-     */
-
-    const frames =
-        data.frames ||
-        data.timeline ||
-        data.states;
-
-
-    if (
-        !Array.isArray(frames) ||
-        frames.length === 0
-    ) {
-
-        return {
-            x: Number(data.x || data.position?.x || 0),
-            y: Number(data.y || data.position?.y || 0),
-            z: Number(data.z || data.position?.z || 0),
-            yaw: Number(data.yaw || 0),
-            pitch: Number(data.pitch || 0),
-            health: Number(data.health ?? 20),
-            food: Number(data.food ?? 20),
-            ground: Boolean(data.ground),
-            gamemode: data.gamemode || "-",
-            held: data.held || "-",
-            velocity: data.velocity || { x: 0, y: 0, z: 0 },
-            effects: data.effects || []
+function updatePlayersList() {
+    const container = document.getElementById('players-container');
+    container.innerHTML = '';
+    if (!replayData.frames[0] || !replayData.frames[0].players) return;
+
+    Object.keys(replayData.frames[0].players).forEach(uuid => {
+        const p = replayData.frames[0].players[uuid];
+        const div = document.createElement('div');
+        div.className = `player-entry ${uuid === selectedPlayer ? 'selected' : ''}`;
+        div.textContent = p.name || uuid.substring(0, 8);
+        div.onclick = () => {
+            selectedPlayer = uuid;
+            updatePlayersList();
+            renderFrame(Math.floor(currentFrame));
         };
-    }
-
-
-    let previous =
-        frames[0];
-
-    let next =
-        frames[frames.length - 1];
-
-
-    for (let i = 0; i < frames.length; i++) {
-
-        const frame =
-            frames[i];
-
-        const t =
-            Number(
-                frame.time ??
-                frame.t ??
-                0
-            );
-
-        if (t <= time) {
-            previous = frame;
-        }
-
-        if (t >= time) {
-            next = frame;
-            break;
-        }
-    }
-
-
-    const t0 =
-        Number(
-            previous.time ??
-            previous.t ??
-            0
-        );
-
-    const t1 =
-        Number(
-            next.time ??
-            next.t ??
-            t0
-        );
-
-
-    const alpha =
-        t1 === t0
-            ? 0
-            : clamp(
-                (time - t0) /
-                (t1 - t0),
-                0,
-                1
-            );
-
-
-    return interpolatePlayerState(
-        previous,
-        next,
-        alpha
-    );
+        container.appendChild(div);
+    });
 }
 
-
-function interpolatePlayerState(
-    a,
-    b,
-    alpha
-) {
-
-    const av =
-        a.position || a;
-
-    const bv =
-        b.position || b;
-
-
-    return {
-
-        x: THREE.MathUtils.lerp(
-            Number(av.x || 0),
-            Number(bv.x ?? av.x ?? 0),
-            alpha
-        ),
-
-        y: THREE.MathUtils.lerp(
-            Number(av.y || 0),
-            Number(bv.y ?? av.y ?? 0),
-            alpha
-        ),
-
-        z: THREE.MathUtils.lerp(
-            Number(av.z || 0),
-            Number(bv.z ?? av.z ?? 0),
-            alpha
-        ),
-
-        yaw:
-            Number(
-                a.yaw ??
-                0
-            ),
-
-        pitch:
-            Number(
-                a.pitch ??
-                0
-            ),
-
-        health:
-            Number(
-                a.health ??
-                b.health ??
-                20
-            ),
-
-        food:
-            Number(
-                a.food ??
-                b.food ??
-                20
-            ),
-
-        ground:
-            Boolean(
-                a.ground ??
-                b.ground
-            ),
-
-        gamemode:
-            a.gamemode ??
-            b.gamemode ??
-            "-",
-
-        held:
-            a.held ??
-            b.held ??
-            "-",
-
-        velocity:
-            a.velocity ??
-            b.velocity ??
-            { x: 0, y: 0, z: 0 },
-
-        effects:
-            a.effects ??
-            b.effects ??
-            []
-    };
+function togglePlay() {
+    isPlaying = !isPlaying;
+    document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
 }
 
-
-/* ================================================================
-   PLAYER LIST
-================================================================ */
-
-function populatePlayersList() {
-
-    const container =
-        $("players-container");
-
-    container.innerHTML = "";
-
-
-    for (const [id, entry] of state.players) {
-
-        const data =
-            entry.data;
-
-
-        const element =
-            document.createElement("div");
-
-        element.className =
-            "player-entry";
-
-
-        const name =
-            document.createElement("span");
-
-        name.className =
-            "player-name";
-
-        name.textContent =
-            data.name || id;
-
-
-        const hp =
-            document.createElement("span");
-
-        hp.className =
-            "player-hp";
-
-        hp.textContent =
-            "20";
-
-
-        const pos =
-            document.createElement("span");
-
-        pos.className =
-            "player-pos";
-
-        pos.textContent =
-            "0, 0, 0";
-
-
-        element.append(
-            name,
-            hp,
-            pos
-        );
-
-
-        element.onclick =
-            () => selectPlayer(id);
-
-
-        element.dataset.id =
-            id;
-
-
-        container.appendChild(
-            element
-        );
-    }
+function seekFrame(val) {
+    currentFrame = parseInt(val);
+    renderFrame(currentFrame);
 }
 
-
-function selectPlayer(id) {
-
-    state.selectedPlayer = id;
-
-    updatePlayerSelection();
-
-    updateReplayUI();
+function skip(amount) {
+    currentFrame = Math.max(0, Math.min(replayData.frames.length - 1, currentFrame + amount));
+    document.getElementById('timeline').value = Math.floor(currentFrame);
+    renderFrame(Math.floor(currentFrame));
 }
 
-
-function updatePlayerSelection() {
-
-    document
-        .querySelectorAll(".player-entry")
-        .forEach(element => {
-
-            element.classList.toggle(
-                "selected",
-                element.dataset.id ===
-                String(state.selectedPlayer)
-            );
-        });
+function changeSpeed() {
+    speedIdx = (speedIdx + 1) % speeds.length;
+    playSpeed = speeds[speedIdx];
+    document.getElementById('speed-label').textContent = `${playSpeed.toFixed(1)}x`;
 }
 
-
-/* ================================================================
-   CHAT
-================================================================ */
-
-function renderChat(replay) {
-
-    const panel =
-        $("chat-panel");
-
-    panel.innerHTML = "";
-
-
-    const messages =
-        Array.isArray(replay.chat)
-            ? replay.chat
-            : [];
-
-
-    for (const message of messages) {
-
-        const row =
-            document.createElement("div");
-
-        row.className =
-            "chat-msg";
-
-
-        const player =
-            document.createElement("span");
-
-        player.className =
-            "chat-player";
-
-        player.textContent =
-            message.player ||
-            message.name ||
-            "Server";
-
-
-        const text =
-            document.createElement("span");
-
-        text.className =
-            "chat-text";
-
-        text.textContent =
-            `: ${message.text || ""}`;
-
-
-        row.append(
-            player,
-            text
-        );
-
-
-        panel.appendChild(
-            row
-        );
-    }
+function toggleFollow() {
+    followTarget = !followTarget;
+    document.getElementById('follow-btn').classList.toggle('active', followTarget);
 }
 
-
-/* ================================================================
-   REPLAY UI
-================================================================ */
-
-function updateReplayUI() {
-
-    $("time-label").textContent =
-        `${formatTime(state.currentTime)} / ${formatTime(state.duration)}`;
-
-
-    $("timeline").value =
-        state.currentTime;
-
-
-    $("speed-label").textContent =
-        `${state.speed.toFixed(1)}x`;
-
-
-    $("play-btn").textContent =
-        state.playing
-            ? "⏸"
-            : "▶";
-
-
-    const entry =
-        state.players.get(
-            state.selectedPlayer
-        );
-
-
-    if (!entry) {
-        return;
-    }
-
-
-    const data =
-        entry.data;
-
-
-    const sample =
-        getPlayerStateAt(
-            data,
-            state.currentTime
-        );
-
-
-    $("player-label").textContent =
-        data.name || "-";
-
-
-    $("info-title").textContent =
-        `${data.name || "Player"} Info`;
-
-
-    $("info-world").textContent =
-        data.world ||
-        data.dimension ||
-        "-";
-
-
-    $("info-mctime").textContent =
-        Math.floor(
-            state.currentTime
-        );
-
-
-    $("info-pos").textContent =
-        `${sample.x.toFixed(2)}, ` +
-        `${sample.y.toFixed(2)}, ` +
-        `${sample.z.toFixed(2)}`;
-
-
-    const velocity =
-        sample.velocity || {};
-
-
-    $("info-vel").textContent =
-        `${Number(velocity.x || 0).toFixed(2)}, ` +
-        `${Number(velocity.y || 0).toFixed(2)}, ` +
-        `${Number(velocity.z || 0).toFixed(2)}`;
-
-
-    $("info-look").textContent =
-        `${Number(sample.yaw || 0).toFixed(1)}° / ` +
-        `${Number(sample.pitch || 0).toFixed(1)}°`;
-
-
-    $("info-hp").textContent =
-        sample.health;
-
-
-    $("info-food").textContent =
-        sample.food;
-
-
-    $("info-ground").textContent =
-        sample.ground
-            ? "Yes"
-            : "No";
-
-
-    $("info-gm").textContent =
-        sample.gamemode;
-
-
-    $("info-held").textContent =
-        sample.held;
-
-
-    const speed =
-        Math.sqrt(
-            Number(velocity.x || 0) ** 2 +
-            Number(velocity.y || 0) ** 2 +
-            Number(velocity.z || 0) ** 2
-        );
-
-
-    $("info-speed").textContent =
-        speed.toFixed(3);
-
-
-    $("info-armor").textContent =
-        data.armor
-            ? JSON.stringify(data.armor)
-            : "-";
-
-
-    $("info-effects").textContent =
-        Array.isArray(sample.effects)
-            ? sample.effects.join(", ") || "-"
-            : String(sample.effects || "-");
-
-
-    updatePlayerSelection();
-}
-
-
-/* ================================================================
-   PLAYBACK
-================================================================ */
-
-window.togglePlay = function() {
-
-    if (!state.loaded) {
-        return;
-    }
-
-    state.playing =
-        !state.playing;
-
-    updateReplayUI();
-};
-
-
-window.skipBack = function() {
-
-    state.currentTime =
-        clamp(
-            state.currentTime - 5,
-            0,
-            state.duration
-        );
-
-    updateReplayUI();
-};
-
-
-window.skipForward = function() {
-
-    state.currentTime =
-        clamp(
-            state.currentTime + 5,
-            0,
-            state.duration
-        );
-
-    updateReplayUI();
-};
-
-
-window.changeSpeed = function(direction) {
-
-    const speeds =
-        [
-            .25,
-            .5,
-            .75,
-            1,
-            1.25,
-            1.5,
-            2,
-            4,
-            8
-        ];
-
-
-    let index =
-        speeds.indexOf(
-            state.speed
-        );
-
-
-    if (index === -1) {
-        index = 3;
-    }
-
-
-    index =
-        clamp(
-            index + direction,
-            0,
-            speeds.length - 1
-        );
-
-
-    state.speed =
-        speeds[index];
-
-
-    updateReplayUI();
-};
-
-
-/* ================================================================
-   CAMERA
-================================================================ */
-
-window.toggleFollow = function() {
-
-    state.follow =
-        !state.follow;
-
-    $("follow-btn")
-        .classList.toggle(
-            "active",
-            state.follow
-        );
-};
-
-
-window.resetCamera = function() {
-
-    camera.position.set(
-        10,
-        7,
-        10
-    );
-
-    controls.target.set(
-        0,
-        0,
-        0
-    );
-
-    controls.update();
-};
-
-
-function updateCamera() {
-
-    if (
-        !state.follow ||
-        !state.selectedPlayer
-    ) {
-        return;
-    }
-
-
-    const entry =
-        state.players.get(
-            state.selectedPlayer
-        );
-
-
-    if (!entry) {
-        return;
-    }
-
-
-    const sample =
-        getPlayerStateAt(
-            entry.data,
-            state.currentTime
-        );
-
-
-    const target =
-        new THREE.Vector3(
-            sample.x,
-            sample.y + 1,
-            sample.z
-        );
-
-
-    state.cameraTarget.lerp(
-        target,
-        .15
-    );
-
-
-    const direction =
-        new THREE.Vector3(
-            Math.sin(
-                THREE.MathUtils.degToRad(
-                    sample.yaw
-                )
-            ),
-            0,
-            Math.cos(
-                THREE.MathUtils.degToRad(
-                    sample.yaw
-                )
-            )
-        );
-
-
-    const desired =
-        target.clone()
-            .addScaledVector(
-                direction,
-                -CONFIG.cameraDistance
-            );
-
-
-    desired.y +=
-        CONFIG.cameraHeight;
-
-
-    camera.position.lerp(
-        desired,
-        .08
-    );
-
-
-    controls.target.lerp(
-        target,
-        .15
-    );
-}
-
-
-/* ================================================================
-   PLAYER UPDATE
-================================================================ */
-
-function updatePlayers() {
-
-    for (const [id, entry] of state.players) {
-
-        const sample =
-            getPlayerStateAt(
-                entry.data,
-                state.currentTime
-            );
-
-
-        entry.object.position.set(
-            sample.x,
-            sample.y,
-            sample.z
-        );
-
-
-        entry.object.rotation.y =
-            THREE.MathUtils.degToRad(
-                -sample.yaw
-            );
-
-
-        entry.object.visible =
-            true;
-    }
-}
-
-
-/* ================================================================
-   TRAIL
-================================================================ */
-
-function updateTrail() {
-
-    if (!state.trail) {
-        trailGroup.visible = false;
-        return;
-    }
-
-    trailGroup.visible = true;
-
-
-    clearGroup(
-        trailGroup
-    );
-
-
-    const entry =
-        state.players.get(
-            state.selectedPlayer
-        );
-
-
-    if (!entry) {
-        return;
-    }
-
-
-    const frames =
-        entry.data.frames ||
-        entry.data.timeline ||
-        entry.data.states;
-
-
-    if (!Array.isArray(frames)) {
-        return;
-    }
-
-
-    const points = [];
-
-
-    for (const frame of frames) {
-
-        const position =
-            frame.position || frame;
-
-
-        const t =
-            Number(
-                frame.time ??
-                frame.t ??
-                0
-            );
-
-
-        if (t > state.currentTime) {
-            break;
-        }
-
-
-        points.push(
-            new THREE.Vector3(
-                Number(position.x || 0),
-                Number(position.y || 0) + .05,
-                Number(position.z || 0)
-            )
-        );
-    }
-
-
-    if (points.length < 2) {
-        return;
-    }
-
-
-    const geometry =
-        new THREE.BufferGeometry()
-            .setFromPoints(points);
-
-
-    const material =
-        new THREE.LineBasicMaterial({
-            color: 0x00d6ff,
-            transparent: true,
-            opacity: .65
-        });
-
-
-    const line =
-        new THREE.Line(
-            geometry,
-            material
-        );
-
-
-    trailGroup.add(line);
-}
-
-
-/* ================================================================
-   TOGGLES
-================================================================ */
-
-window.toggleNames = function() {
-
-    state.names =
-        !state.names;
-
-    $("names-btn")
-        .classList.toggle(
-            "active",
-            state.names
-        );
-};
-
-
-window.toggleBlockChanges = function() {
-
-    state.blocks =
-        !state.blocks;
-
-    $("blocks-btn")
-        .classList.toggle(
-            "active",
-            state.blocks
-        );
-};
-
-
-window.toggleTrail = function() {
-
-    state.trail =
-        !state.trail;
-
-    $("trail-btn")
-        .classList.toggle(
-            "active",
-            state.trail
-        );
-};
-
-
-/* ================================================================
-   TIMELINE
-================================================================ */
-
-$("timeline").addEventListener(
-    "input",
-    event => {
-
-        state.currentTime =
-            Number(
-                event.target.value
-            );
-
-        updateReplayUI();
-    }
-);
-
-
-/* ================================================================
-   KEYBOARD
-================================================================ */
-
-window.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.target.tagName ===
-            "INPUT"
-        ) {
-            return;
-        }
-
-
-        if (event.code === "Space") {
-
-            event.preventDefault();
-
-            togglePlay();
-        }
-
-
-        if (event.code === "ArrowLeft") {
-            skipBack();
-        }
-
-
-        if (event.code === "ArrowRight") {
-            skipForward();
-        }
-    }
-);
-
-
-/* ================================================================
-   ANIMATION
-================================================================ */
-
-let lastFrame =
-    performance.now();
-
-
-function animationLoop(now) {
-
-    requestAnimationFrame(
-        animationLoop
-    );
-
-
-    const delta =
-        Math.min(
-            .1,
-            (now - lastFrame) / 1000
-        );
-
-
-    lastFrame = now;
-
-
-    if (
-        state.loaded &&
-        state.playing
-    ) {
-
-        state.currentTime +=
-            delta * state.speed;
-
-
-        if (
-            state.currentTime >=
-            state.duration
-        ) {
-
-            state.currentTime =
-                state.duration;
-
-            state.playing =
-                false;
-        }
-
-
-        updateReplayUI();
-    }
-
-
-    if (state.loaded) {
-
-        updatePlayers();
-        updateCamera();
-        updateTrail();
-    }
-
-
-    controls.update();
-
-    renderer.render(
-        scene,
-        camera
-    );
-}
-
-
-/* ================================================================
-   RESIZE
-================================================================ */
-
-window.addEventListener(
-    "resize",
-    () => {
-
-        camera.aspect =
-            window.innerWidth /
-            window.innerHeight;
-
-        camera.updateProjectionMatrix();
-
-
-        renderer.setSize(
-            window.innerWidth,
-            window.innerHeight
-        );
-
-
-        renderer.setPixelRatio(
-            Math.min(
-                window.devicePixelRatio || 1,
-                CONFIG.maxPixelRatio
-            )
-        );
-    }
-);
-
-
-/* ================================================================
-   INITIAL RENDER
-================================================================ */
-
-renderer.render(
-    scene,
-    camera
-);
-
+init3D();
 </script>
-
 </body>
 </html>
-```
