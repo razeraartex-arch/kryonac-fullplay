@@ -1176,6 +1176,10 @@ function buildChatList(){
 var fpsAcc=0;
 initThree();
 initUI();
+var hh=(location.hash||"").replace(/^#/,"");
+if(!hh){
+  $("#loading").style.display="none";
+}
 })();
 </script>
 </body>
