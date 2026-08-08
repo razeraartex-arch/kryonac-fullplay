@@ -242,18 +242,76 @@ function toast(msg,err){
 
 var LEGACY={
   1:["#8d8d8d","Stone"],2:["#7db44a","Grass Block"],3:["#a47449","Dirt"],
-  4:["#7f7f7f","Cobblestone"],5:["#b5915e","Oak Planks"],7:["#333333","Bedrock"],
+  4:["#7f7f7f","Cobblestone"],5:["#b5915e","Oak Planks"],6:["#6b4d28","Oak Sapling"],
+  7:["#333333","Bedrock"],8:["#3f76e4","Water"],9:["#3f76e4","Water"],
+  10:["#d94747","Lava"],11:["#d94747","Lava"],
   12:["#e3d79a","Sand"],13:["#9a9a9a","Gravel"],14:["#c9a01e","Gold Ore"],
   15:["#bfa58a","Iron Ore"],16:["#3a3a3a","Coal Ore"],17:["#6b4d28","Oak Log"],
-  18:["#3b7a2e","Leaves"],24:["#d8c78a","Sandstone"],31:["#5da03c","Tall Grass"],
-  35:["#e8e8e8","Wool"],45:["#b05a4a","Bricks"],47:["#8a744e","Bookshelf"],
-  48:["#5d6b4c","Mossy Stone"],62:["#b5915f","Grass Path"],73:["#c98848","Redstone Ore"],
-  78:["#ecf4f7","Snow Layer"],80:["#e2eef2","Snow Block"],82:["#a9b0b8","Clay"],
-  86:["#d96d1e","Pumpkin"],98:["#7d7d7d","Stone Bricks"],110:["#6d5981","Mycelium"],
-  112:["#4a1f1a","Nether Brick"],121:["#d8cf9c","End Stone"],129:["#2f4f3a","Emerald Ore"],
-  133:["#45d96c","Emerald Block"],134:["#6f5a3d","Spruce Planks"],155:["#ececec","Quartz"],
-  161:["#7a9a3a","Leaves"],162:["#a97441","Acacia Log"],173:["#87b7e0","Packed Ice"],
-  174:["#a1d4f4","Ice"],179:["#c77f3e","Red Sandstone"]
+  18:["#3b7a2e","Leaves"],19:["#6b8c42","Slime"],20:["#d8eff9","Glass"],
+  21:["#3a6fa0","Lapis Ore"],22:["#3a5fa0","Lapis Block"],
+  24:["#d8c78a","Sandstone"],25:["#8c6a4e","Note Block"],
+  31:["#5da03c","Tall Grass"],32:["#6b8c42","Dead Bush"],
+  35:["#e8e8e8","Wool"],37:["#e8d83a","Dandelion"],38:["#e83a3a","Poppy"],
+  39:["#6b8c42","Brown Mushroom"],40:["#e83a3a","Red Mushroom"],
+  41:["#ffd95e","Gold Block"],42:["#d8d8d8","Iron Block"],
+  44:["#b05a4a","Slab"],45:["#b05a4a","Bricks"],
+  46:["#d94747","TNT"],47:["#8a744e","Bookshelf"],
+  48:["#5d6b4c","Mossy Cobblestone"],49:["#281a32","Obsidian"],
+  50:["#ff6633","Torch"],53:["#b5915e","Oak Stairs"],
+  54:["#8a744e","Chest"],56:["#4a9e9e","Diamond Ore"],
+  57:["#4ae3cf","Diamond Block"],58:["#6b4d28","Crafting Table"],
+  61:["#8a8a8a","Furnace"],62:["#8a8a8a","Burning Furnace"],
+  67:["#7f7f7f","Cobblestone Stairs"],
+  73:["#c98848","Redstone Ore"],74:["#c98848","Redstone Ore"],
+  78:["#ecf4f7","Snow Layer"],79:["#5586e0","Ice"],
+  80:["#e2eef2","Snow Block"],81:["#2d8a4e","Cactus"],
+  82:["#a9b0b8","Clay"],85:["#8a744e","Fence"],
+  86:["#d96d1e","Pumpkin"],87:["#5a2a0a","Netherrack"],
+  88:["#6d5238","Soul Sand"],89:["#d9a123","Glowstone"],
+  90:["#6d28a0","Nether Portal"],
+  95:["#d9d9d9","Infested Stone"],
+  96:["#8a6a3a","Trapdoor"],
+  98:["#7d7d7d","Stone Bricks"],99:["#8a744e","Brown Mushroom Block"],
+  100:["#e83a3a","Red Mushroom Block"],
+  101:["#8c8c6a","Iron Bars"],102:["#d8eff9","Glass Pane"],
+  103:["#d96d1e","Melon"],104:["#6b4d28","Pumpkin Stem"],
+  105:["#6b8c42","Melon Stem"],106:["#6b8c42","Vine"],
+  107:["#8a744e","Fence Gate"],108:["#b05a4a","Brick Stairs"],
+  109:["#7d7d7d","Stone Brick Stairs"],
+  110:["#6d5981","Mycelium"],112:["#4a1f1a","Nether Brick"],
+  113:["#4a1f1a","Nether Brick Fence"],114:["#4a1f1a","Nether Brick Stairs"],
+  115:["#6d2828","Nether Wart"],
+  120:["#d4c190","Enchantment Table"],
+  121:["#d8cf9c","End Stone"],122:["#1a1a2e","Dragon Egg"],
+  127:["#d96d1e","Melon Stairs"],
+  128:["#d8c78a","Sandstone Stairs"],
+  129:["#2f4f3a","Emerald Ore"],
+  133:["#45d96c","Emerald Block"],134:["#6f5a3d","Spruce Planks"],
+  135:["#b5915e","Spruce Stairs"],136:["#7db44a","Spruce Fence"],
+  139:["#8d8d8d","Stone Pressure Plate"],
+  152:["#c93a3a","Redstone Block"],
+  154:["#8a8a8a","Hopper"],155:["#ececec","Quartz Block"],
+  156:["#ececec","Quartz Stairs"],
+  159:["#d9d9d9","Terracotta"],
+  161:["#7a9a3a","Leaves"],162:["#a97441","Acacia Log"],
+  163:["#b5915e","Acacia Stairs"],164:["#b5915e","Acacia Fence"],
+  170:["#b5915e","Hay Bale"],172:["#8a5a3a","Hardened Clay"],
+  173:["#87b7e0","Packed Ice"],174:["#a1d4f4","Ice"],
+  179:["#c77f3e","Red Sandstone"],
+  180:["#c77f3e","Red Sandstone Stairs"],
+  188:["#8a744e","Spruce Fence Gate"],
+  155:["#ececec","Quartz Block"],
+  172:["#8a5a3a","Terracotta"],
+  24:["#d8c78a","Smooth Sandstone"],
+  178:["#d8c78a","Smooth Stone Slab"],
+  175:["#3b7a2e","Double Plant"],
+  176:["#e83a3a","Standing Banner"],177:["#e83a3a","Wall Banner"],
+  182:["#b05a4a","Brick Slab"],183:["#b5915e","Fence Gate"],
+  186:["#b5915e","Fence Gate"],187:["#b5915e","Fence Gate"],
+  190:["#b5915e","Fence Gate"],191:["#b5915e","Fence Gate"],
+  192:["#b5915e","Fence Gate"],
+  24:["#d8c78a","Sandstone"],
+  181:["#c77f3e","Red Sandstone Slab"]
 };
 (function(){for(var i=1;i<256;i++){if(!LEGACY[i])LEGACY[i]=["#7d7d7d","Block "+i];}})();
 function blockInfo(id){
@@ -388,11 +446,14 @@ function glowTexture(c1,c2){
 /* ============ CHUNKS ============ */
 function decodeChunks(lst){
   st.chunkMap={};
-  var maxChunks=500,maxY=256;
-  var totalNonAir=0;
-  for(var i=0;i<lst.length&&Object.keys(st.chunkMap).length<maxChunks;i++){
+  st.allChunks={};
+  var maxChunks=1500,maxY=256;
+  var totalNonAir=0,totalSkipped=0;
+  var targetWorld=st.wName||"";
+  for(var i=0;i<lst.length;i++){
     var c=lst[i];if(!c)continue;
     if(c.cx==null||c.cz==null)continue;
+    var wn=c.wn||"";
     var yoff=Math.floor(num(c.yOff)),yr=Math.floor(num(c.yRange))||256;
     if(yr<1||yr>512)yr=256;
     if(yr>maxY)yr=maxY;
@@ -410,13 +471,26 @@ function decodeChunks(lst){
       }
     }
     totalNonAir+=chunkNonAir;
-    st.chunkMap[c.cx+","+c.cz]={cx:c.cx,cz:c.cz,yOff:yoff,yr:yr,data:arr};
+    var chunkObj={cx:c.cx,cz:c.cz,yOff:yoff,yr:yr,data:arr,wn:wn};
+    if(!st.allChunks[wn])st.allChunks[wn]={};
+    st.allChunks[wn][c.cx+","+c.cz]=chunkObj;
+    if(targetWorld&&wn===targetWorld){
+      if(Object.keys(st.chunkMap).length<maxChunks)
+        st.chunkMap[c.cx+","+c.cz]=chunkObj;
+    }else if(!targetWorld){
+      if(Object.keys(st.chunkMap).length<maxChunks)
+        st.chunkMap[c.cx+","+c.cz]=chunkObj;
+    }else{
+      totalSkipped++;
+    }
   }
   var decoded=Object.keys(st.chunkMap).length;
-  console.log("[FullPlay] Decoded "+decoded+"/"+lst.length+" chunks, "+totalNonAir+" non-air blocks total");
+  var worlds=Object.keys(st.allChunks);
+  console.log("[FullPlay] Decoded "+decoded+"/"+lst.length+" chunks ("+totalNonAir+" blocks, "+totalSkipped+" skipped for world='"+targetWorld+"')");
+  console.log("[FullPlay] Worlds found: "+worlds.join(", "));
   if(decoded>0&&lst[0]){
     var sample=lst[0];
-    console.log("[FullPlay] Sample chunk: cx="+sample.cx+" cz="+sample.cz+" yOff="+sample.yOff+" yRange="+sample.yRange+" blocks type="+(sample.blocks&&sample.blocks.length?typeof sample.blocks[0]:"empty")+" len="+(sample.blocks?sample.blocks.length:0));
+    console.log("[FullPlay] Sample chunk: cx="+sample.cx+" cz="+sample.cz+" wn="+sample.wn+" yOff="+sample.yOff+" yRange="+sample.yRange);
     if(sample.blocks&&sample.blocks.length>0){
       console.log("[FullPlay] First 5 blocks:",sample.blocks.slice(0,5));
     }
@@ -453,7 +527,10 @@ function buildChunkMesh(c){
         var info=blockInfo(id);
         var r0=((info.color>>16)&255)/255,g0=((info.color>>8)&255)/255,b0=(info.color&255)/255;
         var hx=((wx*73856093)^(wy*19349663)^(wz*83492791))>>>0;
-        var vary=0.88+((hx*47)%17)/100;
+        var vary=0.85+((hx*47)%20)/100;
+        var noiseR=(((hx>>>8)%7)-3)/255;
+        var noiseG=(((hx>>>16)%7)-3)/255;
+        var noiseB=(((hx>>>24)%7)-3)/255;
         for(var f=0;f<6;f++){
           var nb=wb(wx+FD[f][0],wy+FD[f][1],wz+FD[f][2]);
           if(nb!==0)continue;
@@ -466,7 +543,7 @@ function buildChunkMesh(c){
             var cn=C0[vi];
             if(!cn)continue;
             P.push(wx+cn[0],wy+cn[1],wz+cn[2]);
-            Cv.push(r0*sh[0],g0*sh[1],b0*sh[2]);
+            Cv.push(r0*sh[0]+noiseR,g0*sh[1]+noiseG,b0*sh[2]+noiseB);
             _verts++;
           }
           _faces++;
@@ -716,7 +793,7 @@ function disposeCurrentReplay(){
 function onJson(j,tok){
   disposeCurrentReplay();
   if(!j||!j.frames||!j.frames.length){boot(0,"Replay empty or corrupt.");return;}
-  st={loaded:true,frames:j.frames,chunkMap:{},events:(j.blockChanges||[]).slice(),projectiles:(j.projectiles||[]).slice(),chatList:[],
+  st={loaded:true,frames:j.frames,chunkMap:{},allChunks:{},events:(j.blockChanges||[]).slice(),projectiles:(j.projectiles||[]).slice(),chatList:[],
       tick0:0,tick1:0,wName:j.worldName||"world",playerName:j.playerName||"",playerUuid:j.playerUuid||""||"",
       trigger:j.triggerCheck||"",t0ts:(j.frames[0]&&j.frames[0].ts)||0,t1ts:(j.frames[j.frames.length-1]&&j.frames[j.frames.length-1].ts)||0};
   st.frames.sort(function(a,b){return a.tick-b.tick;});
@@ -754,7 +831,7 @@ function onWorldReady(){
     });
     if(orderIds.length)follow=orderIds[0];
     curTick=st.tick0;
-    lastEvt=0;lastChatN=0;lastProj=0;lastFrame=-1;
+    lastEvt=0;lastChatN=0;lastProj=0;lastFrame=-1;currentWorldName=st.wName;
     placeCameraFirst();
     boot(100,"Ready");
     if(loadTimeout)clearTimeout(loadTimeout);
@@ -912,6 +989,7 @@ function showChatToast(c){
 
 /* ============ POSE UPDATE ============ */
 var poseCache={};
+var currentWorldName="";
 function frameAt(t){
   if(st.tick0>=st.tick1)return{idx:0,frac:0};
   var span=st.tick1-st.tick0;
@@ -919,10 +997,29 @@ function frameAt(t){
   var idx=Math.min(st.frames.length-1,Math.max(0,Math.floor(f*st.frames.length)));
   return{idx:idx,frac:(t-st.frames[idx].tick)/(st.frames[Math.min(idx+1,st.frames.length-1)].tick-st.frames[idx].tick||1)};
 }
+function switchWorld(newWorld){
+  if(!st.allChunks||!st.allChunks[newWorld])return;
+  st.chunkMap={};
+  var src=st.allChunks[newWorld];
+  var keys=Object.keys(src);
+  for(var i=0;i<keys.length&&i<1500;i++)st.chunkMap[keys[i]]=src[keys[i]];
+  currentWorldName=newWorld;
+  console.log("[FullPlay] Switched to world '"+newWorld+"' ("+Object.keys(st.chunkMap).length+" chunks)");
+  while(gWorld.children.length>0){
+    var c=gWorld.children[0];
+    if(c.geometry)c.geometry.dispose();
+    if(c.material)c.material.dispose();
+    gWorld.remove(c);
+  }
+  buildWorldAsync(null);
+}
 function updatePoses(dt){
   if(!st.frames.length)return;
   var pos=frameAt(curTick);
   var A=st.frames[pos.idx],B=st.frames[Math.min(pos.idx+1,st.frames.length-1)];
+  if(A&&A.wn&&A.wn!==currentWorldName&&st.allChunks&&st.allChunks[A.wn]){
+    switchWorld(A.wn);
+  }
   var al=clamp(pos.frac,0,1);
   var inA=A&&A.players?A.players:{};
   var inB=B&&B.players?B.players:inA;
