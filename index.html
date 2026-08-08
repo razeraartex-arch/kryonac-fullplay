@@ -1,1128 +1,2900 @@
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>KryonAC FullPlay - 3D Replay Viewer</title>
-<style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
-#canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-canvas { display: block; }
+<title>Minecraft Replay Viewer</title>
 
-#ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
-#ui-overlay > * { pointer-events: auto; }
+<style>
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #05070d;
+    color: #fff;
+    font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+canvas {
+    position: fixed;
+    inset: 0;
+    display: block;
+}
+
+#ui-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+#ui-overlay > * {
+    pointer-events: auto;
+}
+
+/* ---------------------------------------------------------
+   TOKEN SCREEN
+--------------------------------------------------------- */
 
 #token-input {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    background: #16213e; border: 2px solid #0f3460; border-radius: 12px;
-    padding: 40px; text-align: center; width: 420px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(460px, calc(100vw - 32px));
+    padding: 34px;
+    text-align: center;
+
+    background:
+        linear-gradient(
+            180deg,
+            rgba(20, 30, 55, .96),
+            rgba(10, 15, 30, .96)
+        );
+
+    border: 1px solid rgba(0, 214, 255, .35);
+    border-radius: 16px;
+    box-shadow:
+        0 25px 80px rgba(0,0,0,.55),
+        inset 0 1px 0 rgba(255,255,255,.04);
+
+    backdrop-filter: blur(18px);
 }
-#token-input h1 { color: #00d6ff; font-size: 24px; margin-bottom: 8px; }
-#token-input p { color: #888; font-size: 13px; margin-bottom: 20px; }
+
+#token-input h1 {
+    margin: 0 0 8px;
+    color: #00d6ff;
+    font-size: 25px;
+    letter-spacing: -.4px;
+}
+
+#token-input p {
+    margin: 0 0 22px;
+    color: #8993a7;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
 #token-input input {
-    width: 100%; padding: 12px; border: 1px solid #0f3460; border-radius: 6px;
-    background: #0a0e27; color: #fff; font-size: 16px; text-align: center;
-    font-family: monospace; letter-spacing: 2px;
+    width: 100%;
+    height: 46px;
+    padding: 0 14px;
+
+    border: 1px solid #263b63;
+    border-radius: 8px;
+
+    outline: none;
+    background: #080d1d;
+    color: #fff;
+
+    text-align: center;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    letter-spacing: 1.5px;
+
+    transition: border-color .15s, box-shadow .15s;
 }
-#token-input input:focus { outline: none; border-color: #00d6ff; }
+
+#token-input input:focus {
+    border-color: #00d6ff;
+    box-shadow: 0 0 0 3px rgba(0,214,255,.10);
+}
+
 #token-input button {
-    margin-top: 12px; padding: 10px 30px; background: #0f3460; color: #00d6ff;
-    border: 1px solid #00d6ff; border-radius: 6px; cursor: pointer; font-size: 14px;
-}
-#token-input button:hover { background: #00d6ff; color: #0a0e27; }
+    margin-top: 13px;
+    min-width: 130px;
+    height: 40px;
 
-#controls {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(transparent, rgba(0,0,0,0.9));
-    padding: 20px 30px 25px;
-}
-#timeline-container { width: 100%; margin-bottom: 10px; }
-#timeline {
-    width: 100%; height: 6px; -webkit-appearance: none; background: #0f3460;
-    border-radius: 3px; outline: none; cursor: pointer;
-}
-#timeline::-webkit-slider-thumb {
-    -webkit-appearance: none; width: 16px; height: 16px; background: #00d6ff;
-    border-radius: 50%; cursor: pointer;
-}
-#controls-row { display: flex; align-items: center; gap: 15px; }
-#controls-row button {
-    background: #0f3460; border: 1px solid #00d6ff; color: #00d6ff;
-    padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px;
-}
-#controls-row button:hover { background: #00d6ff; color: #0a0e27; }
-#controls-row button.active { background: #00d6ff; color: #0a0e27; }
-#time-label { color: #888; font-size: 12px; font-family: monospace; min-width: 100px; }
-#player-label { color: #00d6ff; font-size: 14px; font-weight: bold; }
-#speed-label { color: #888; font-size: 12px; }
+    border: 1px solid #00d6ff;
+    border-radius: 8px;
 
-#info-panel {
-    position: absolute; top: 15px; right: 15px;
-    background: rgba(22, 33, 62, 0.9); border: 1px solid #0f3460;
-    border-radius: 8px; padding: 15px; width: 300px; font-size: 12px;
-    max-height: 80vh; overflow-y: auto;
-}
-#info-panel h3 { color: #00d6ff; margin-bottom: 8px; font-size: 14px; }
-.info-row { display: flex; justify-content: space-between; margin: 3px 0; }
-.info-label { color: #888; }
-.info-value { color: #e0e0e0; font-family: monospace; }
+    background: #0f3460;
+    color: #00d6ff;
 
-#chat-panel {
-    position: absolute; bottom: 110px; left: 15px;
-    background: rgba(22, 33, 62, 0.85); border: 1px solid #0f3460;
-    border-radius: 8px; padding: 10px; width: 350px; max-height: 200px;
-    overflow-y: auto; font-size: 12px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+
+    transition:
+        background .15s,
+        color .15s,
+        transform .15s;
 }
-.chat-msg { margin: 2px 0; }
-.chat-player { color: #00d6ff; font-weight: bold; }
-.chat-text { color: #ccc; }
+
+#token-input button:hover {
+    background: #00d6ff;
+    color: #06101b;
+    transform: translateY(-1px);
+}
+
+/* ---------------------------------------------------------
+   PANELS
+--------------------------------------------------------- */
+
+.panel {
+    background: rgba(12, 18, 34, .84);
+    border: 1px solid rgba(71, 105, 157, .45);
+    border-radius: 11px;
+    box-shadow: 0 12px 35px rgba(0,0,0,.22);
+    backdrop-filter: blur(12px);
+}
 
 #players-list {
-    position: absolute; top: 15px; left: 15px;
-    background: rgba(22, 33, 62, 0.9); border: 1px solid #0f3460;
-    border-radius: 8px; padding: 15px; width: 220px; font-size: 12px;
+    position: absolute;
+    top: 15px;
+    left: 15px;
+
+    width: 230px;
+    padding: 14px;
+
+    font-size: 12px;
 }
-#players-list h3 { color: #00d6ff; margin-bottom: 8px; font-size: 14px; }
-.player-entry { padding: 4px 0; cursor: pointer; border-radius: 4px; padding: 4px 6px; }
-.player-entry:hover { background: rgba(0,214,255,0.1); }
-.player-entry.selected { background: rgba(0,214,255,0.2); border-left: 3px solid #00d6ff; }
-.player-name { color: #e0e0e0; font-weight: bold; }
-.player-hp { color: #ff4444; }
-.player-pos { color: #888; font-family: monospace; font-size: 11px; }
+
+#players-list h3,
+#info-panel h3 {
+    margin: 0 0 10px;
+    color: #00d6ff;
+    font-size: 14px;
+}
+
+#players-container {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.player-entry {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 8px;
+
+    padding: 7px 8px;
+    margin: 3px 0;
+
+    border-radius: 7px;
+    cursor: pointer;
+
+    transition: background .12s;
+}
+
+.player-entry:hover {
+    background: rgba(0,214,255,.08);
+}
+
+.player-entry.selected {
+    background: rgba(0,214,255,.15);
+    box-shadow: inset 3px 0 #00d6ff;
+}
+
+.player-name {
+    color: #e7edf8;
+    font-weight: 650;
+}
+
+.player-hp {
+    color: #ff5d67;
+    font-family: ui-monospace, monospace;
+}
+
+.player-pos {
+    grid-column: 1 / -1;
+    color: #7e899d;
+    font-family: ui-monospace, monospace;
+    font-size: 10px;
+}
+
+#info-panel {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+
+    width: 310px;
+    max-height: 78vh;
+    overflow-y: auto;
+
+    padding: 14px;
+
+    font-size: 12px;
+}
+
+.info-row {
+    display: grid;
+    grid-template-columns: 105px 1fr;
+    gap: 8px;
+
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255,255,255,.035);
+}
+
+.info-label {
+    color: #7f899d;
+}
+
+.info-value {
+    color: #e2e7ef;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+/* ---------------------------------------------------------
+   CHAT
+--------------------------------------------------------- */
+
+#chat-panel {
+    position: absolute;
+    left: 15px;
+    bottom: 125px;
+
+    width: 370px;
+    max-height: 210px;
+
+    padding: 11px;
+
+    overflow-y: auto;
+
+    background: rgba(8, 13, 25, .78);
+    border: 1px solid rgba(71,105,157,.38);
+    border-radius: 10px;
+
+    font-size: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.chat-msg {
+    margin: 3px 0;
+    line-height: 1.35;
+}
+
+.chat-player {
+    color: #00d6ff;
+    font-weight: 700;
+}
+
+.chat-text {
+    color: #d0d5df;
+}
+
+/* ---------------------------------------------------------
+   CONTROLS
+--------------------------------------------------------- */
+
+#controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+
+    padding: 18px 25px 22px;
+
+    background:
+        linear-gradient(
+            transparent,
+            rgba(3,5,10,.92) 42%
+        );
+}
+
+#timeline-container {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+#timeline {
+    width: 100%;
+    height: 7px;
+
+    appearance: none;
+    border-radius: 999px;
+    outline: none;
+
+    background: rgba(255,255,255,.12);
+    cursor: pointer;
+}
+
+#timeline::-webkit-slider-thumb {
+    appearance: none;
+
+    width: 16px;
+    height: 16px;
+
+    border-radius: 50%;
+    border: 2px solid #071019;
+
+    background: #00d6ff;
+    box-shadow: 0 0 15px rgba(0,214,255,.5);
+
+    cursor: pointer;
+}
+
+#timeline::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+
+    border-radius: 50%;
+    border: 2px solid #071019;
+
+    background: #00d6ff;
+    cursor: pointer;
+}
+
+#controls-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+#controls-row button {
+    height: 32px;
+    padding: 0 11px;
+
+    border: 1px solid rgba(0,214,255,.45);
+    border-radius: 6px;
+
+    background: rgba(15,52,96,.75);
+    color: #00d6ff;
+
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+
+    transition:
+        background .12s,
+        color .12s,
+        border-color .12s;
+}
+
+#controls-row button:hover {
+    background: #00d6ff;
+    color: #06101b;
+    border-color: #00d6ff;
+}
+
+#controls-row button.active {
+    background: #00d6ff;
+    color: #06101b;
+}
+
+#time-label,
+#speed-label {
+    color: #8b96aa;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+    white-space: nowrap;
+}
+
+#time-label {
+    min-width: 95px;
+}
+
+#player-label {
+    color: #00d6ff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* ---------------------------------------------------------
+   LOADING / ERROR / TOOLTIP
+--------------------------------------------------------- */
 
 #loading {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    color: #00d6ff; font-size: 18px; display: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    display: none;
+
+    padding: 13px 18px;
+
+    background: rgba(5,9,18,.88);
+    border: 1px solid rgba(0,214,255,.3);
+    border-radius: 9px;
+
+    color: #00d6ff;
+    font-size: 14px;
+
+    box-shadow: 0 15px 50px rgba(0,0,0,.4);
+}
+
+#block-tooltip {
+    display: none;
+
+    position: absolute;
+    right: 15px;
+    bottom: 125px;
+
+    padding: 8px 11px;
+
+    background: rgba(8,13,25,.92);
+    border: 1px solid rgba(0,214,255,.3);
+    border-radius: 7px;
+
+    color: #e0e6ef;
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+
+    pointer-events: none;
+}
+
+#error-display {
+    display: none;
+
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+
+    width: min(600px, calc(100vw - 32px));
+    max-height: 70vh;
+    overflow: auto;
+
+    padding: 20px;
+
+    background: rgba(100,0,0,.92);
+    border: 1px solid #ff5d67;
+    border-radius: 12px;
+
+    color: #fff;
+    font-size: 13px;
+    font-family: ui-monospace, monospace;
+
+    white-space: pre-wrap;
+    box-shadow: 0 25px 80px rgba(0,0,0,.5);
+}
+
+/* ---------------------------------------------------------
+   RESPONSIVE
+--------------------------------------------------------- */
+
+@media (max-width: 900px) {
+    #players-list {
+        width: 190px;
+    }
+
+    #info-panel {
+        width: 260px;
+    }
+
+    #controls-row {
+        overflow-x: auto;
+    }
+
+    #chat-panel {
+        width: min(330px, calc(100vw - 30px));
+    }
+}
+
+@media (max-width: 650px) {
+    #players-list,
+    #info-panel {
+        display: none !important;
+    }
+
+    #controls {
+        padding: 12px 10px 15px;
+    }
+
+    #controls-row {
+        gap: 5px;
+    }
+
+    #controls-row button {
+        padding: 0 8px;
+    }
+
+    #chat-panel {
+        bottom: 115px;
+        max-height: 150px;
+    }
 }
 </style>
 </head>
+
 <body>
-<div id="canvas-container"></div>
+
+<canvas id="minecraft-canvas"></canvas>
 
 <div id="ui-overlay">
-    <div id="token-input">
-        <h1>KryonAC FullPlay</h1>
-        <p>3D Replay Viewer — Enter a replay token to load</p>
-        <input type="text" id="token-field" placeholder="e.g. a1b2c3d4e5f6" maxlength="12"
-               onkeydown="if(event.key==='Enter') loadReplay()">
-        <br>
-        <button onclick="loadReplay()">Load Replay</button>
-        <div id="token-error" style="color:#ff4444;margin-top:10px;font-size:12px"></div>
+
+    <div id="token-input" class="panel">
+        <h1>Minecraft Replay Viewer</h1>
+        <p>
+            Inserisci il token del replay oppure un URL/JSON compatibile.
+            La versione Minecraft viene rilevata automaticamente quando
+            è presente nei dati del replay.
+        </p>
+
+        <input
+            id="token"
+            type="text"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="Replay token / URL"
+        >
+
+        <button id="load-btn" onclick="loadReplayFromInput()">
+            Load Replay
+        </button>
     </div>
 
-    <div id="players-list" style="display:none">
+    <div id="players-list" class="panel" style="display:none">
         <h3>Players</h3>
         <div id="players-container"></div>
     </div>
 
-    <div id="info-panel" style="display:none">
+    <div id="info-panel" class="panel" style="display:none">
         <h3 id="info-title">Player Info</h3>
-        <div class="info-row"><span class="info-label">World</span><span class="info-value" id="info-world">-</span></div>
-        <div class="info-row"><span class="info-label">MC Time</span><span class="info-value" id="info-mctime">-</span></div>
-        <div class="info-row"><span class="info-label">Position</span><span class="info-value" id="info-pos">-</span></div>
-        <div class="info-row"><span class="info-label">Velocity</span><span class="info-value" id="info-vel">-</span></div>
-        <div class="info-row"><span class="info-label">Yaw / Pitch</span><span class="info-value" id="info-look">-</span></div>
-        <div class="info-row"><span class="info-label">Health</span><span class="info-value" id="info-hp">-</span></div>
-        <div class="info-row"><span class="info-label">Food / Sat</span><span class="info-value" id="info-food">-</span></div>
-        <div class="info-row"><span class="info-label">Ground</span><span class="info-value" id="info-ground">-</span></div>
-        <div class="info-row"><span class="info-label">Gamemode</span><span class="info-value" id="info-gm">-</span></div>
-        <div class="info-row"><span class="info-label">Held Item</span><span class="info-value" id="info-held">-</span></div>
-        <div class="info-row"><span class="info-label">Speed</span><span class="info-value" id="info-speed">-</span></div>
-        <div class="info-row"><span class="info-label">Armor</span><span class="info-value" id="info-armor">-</span></div>
-        <div class="info-row"><span class="info-label">Effects</span><span class="info-value" id="info-effects">-</span></div>
+
+        <div class="info-row">
+            <span class="info-label">World</span>
+            <span class="info-value" id="info-world">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">MC Time</span>
+            <span class="info-value" id="info-mctime">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Position</span>
+            <span class="info-value" id="info-pos">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Velocity</span>
+            <span class="info-value" id="info-vel">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Yaw / Pitch</span>
+            <span class="info-value" id="info-look">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Health</span>
+            <span class="info-value" id="info-hp">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Food / Sat</span>
+            <span class="info-value" id="info-food">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Ground</span>
+            <span class="info-value" id="info-ground">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Gamemode</span>
+            <span class="info-value" id="info-gm">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Held Item</span>
+            <span class="info-value" id="info-held">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Speed</span>
+            <span class="info-value" id="info-speed">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Armor</span>
+            <span class="info-value" id="info-armor">-</span>
+        </div>
+
+        <div class="info-row">
+            <span class="info-label">Effects</span>
+            <span class="info-value" id="info-effects">-</span>
+        </div>
     </div>
 
     <div id="chat-panel" style="display:none"></div>
 
     <div id="controls" style="display:none">
+
         <div id="timeline-container">
-            <input type="range" id="timeline" min="0" max="100" value="0" step="1">
+            <input
+                type="range"
+                id="timeline"
+                min="0"
+                max="100"
+                value="0"
+                step="0.01"
+            >
         </div>
+
         <div id="controls-row">
+
             <button onclick="skipBack()" title="Back 5s">⏮</button>
-            <button id="play-btn" onclick="togglePlay()" title="Play/Pause">▶</button>
-            <button onclick="skipForward()" title="Forward 5s">⏭</button>
+
+            <button
+                id="play-btn"
+                onclick="togglePlay()"
+                title="Play/Pause"
+            >▶</button>
+
+            <button
+                onclick="skipForward()"
+                title="Forward 5s"
+            >⏭</button>
+
             <span id="time-label">0:00 / 0:00</span>
+
             <span id="player-label">-</span>
+
             <span style="flex:1"></span>
-            <button onclick="changeSpeed(-1)">-</button>
+
+            <button onclick="changeSpeed(-1)">−</button>
             <span id="speed-label">1.0x</span>
             <button onclick="changeSpeed(1)">+</button>
-            <button id="follow-btn" onclick="toggleFollow()" class="active">Follow</button>
+
+            <button
+                id="follow-btn"
+                onclick="toggleFollow()"
+                class="active"
+            >Follow</button>
+
             <button onclick="resetCamera()">Reset View</button>
-            <button id="names-btn" onclick="toggleNames()" class="active">Names</button>
-            <button id="blocks-btn" onclick="toggleBlockChanges()" class="active">Blocks</button>
-            <button id="trail-btn" onclick="toggleTrail()" class="active">Trail</button>
+
+            <button
+                id="names-btn"
+                onclick="toggleNames()"
+                class="active"
+            >Names</button>
+
+            <button
+                id="blocks-btn"
+                onclick="toggleBlockChanges()"
+                class="active"
+            >Blocks</button>
+
+            <button
+                id="trail-btn"
+                onclick="toggleTrail()"
+                class="active"
+            >Trail</button>
+
         </div>
     </div>
 
-    <div id="loading">Loading replay data...</div>
-    <div id="block-tooltip" style="display:none;position:absolute;bottom:110px;right:15px;background:rgba(22,33,62,0.9);border:1px solid #0f3460;border-radius:6px;padding:8px 12px;font-size:12px;color:#e0e0e0;font-family:monospace;pointer-events:none;z-index:100"></div>
-    <div id="error-display" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(200,0,0,0.9);color:#fff;padding:20px;border-radius:10px;font-size:14px;max-width:500px;text-align:center;z-index:999;font-family:monospace;white-space:pre-wrap"></div>
+    <div id="loading">
+        Loading replay data...
+    </div>
+
+    <div id="block-tooltip"></div>
+
+    <div id="error-display"></div>
+
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script>
-const FIREBASE_URL = "https://kryonac-fullplay-default-rtdb.europe-west1.firebasedatabase.app";
+<script type="module">
 
-window.onerror = function(msg, url, line, col, err) {
-    var ed = document.getElementById('error-display');
-    if (ed) { ed.style.display = 'block'; ed.textContent = 'ERROR: ' + (err ? err.message : msg) + '\nLine: ' + line; }
+/*
+|--------------------------------------------------------------------------
+| Minecraft Replay Viewer
+|--------------------------------------------------------------------------
+|
+| IMPORTANT:
+|
+| This file contains the renderer/UI.
+|
+| The actual replay API is intentionally configurable below because
+| the original code supplied with this project did not contain an
+| API endpoint or a replay file parser.
+|
+|--------------------------------------------------------------------------
+*/
+
+import * as THREE from
+    "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+
+import { OrbitControls } from
+    "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/controls/OrbitControls.js";
+
+
+/* ================================================================
+   CONFIGURATION
+================================================================ */
+
+const CONFIG = {
+
+    /*
+     * Change this to your actual replay endpoint.
+     *
+     * Examples:
+     *
+     * "/api/replay/"
+     * "https://your-domain.example/api/replay/"
+     *
+     * The token is appended automatically.
+     */
+    replayEndpoint: "/api/replay/",
+
+    /*
+     * Optional asset endpoint.
+     *
+     * Expected structure is discussed below in loadVersionAssets().
+     */
+    assetEndpoint: "/assets/minecraft/",
+
+    /*
+     * Rendering settings.
+     */
+    renderDistance: 10,
+
+    maxPixelRatio: 2,
+
+    ambientLight: 1.8,
+
+    chunkSize: 16,
+
+    blockSize: 1,
+
+    /*
+     * Camera.
+     */
+    cameraDistance: 8,
+
+    cameraHeight: 4
 };
 
-let scene, camera, renderer, controls;
-let replayData = null;
-let currentFrame = 0;
-let isPlaying = false;
-let playSpeed = 1.0;
-let followTarget = true;
-let selectedPlayer = null;
-let primaryPlayer = null;
-let playerMeshes = {};
-let blockMeshes = [];
-let chatMessages = [];
-let clock;
-let animationId;
-let dirLight, ambientLight;
-let skinTextures = {};
-let skinDimensions = {};
-let trailData = {};
-var ITEM_COLORS = {
-    'WOODEN_SWORD':0x8B4513,'STONE_SWORD':0x808080,'IRON_SWORD':0xDDDDDD,
-    'GOLD_SWORD':0xFFD700,'DIAMOND_SWORD':0x33E0FF,'WOODEN_AXE':0x8B4513,'STONE_AXE':0x808080,'IRON_AXE':0xDDDDDD,
-    'GOLD_AXE':0xFFD700,'DIAMOND_AXE':0x33E0FF,'WOODEN_PICKAXE':0x8B4513,'STONE_PICKAXE':0x808080,'IRON_PICKAXE':0xDDDDDD,
-    'GOLD_PICKAXE':0xFFD700,'DIAMOND_PICKAXE':0x33E0FF,'WOODEN_HOE':0x8B4513,'STONE_HOE':0x808080,'IRON_HOE':0xDDDDDD,
-    'GOLD_HOE':0xFFD700,'DIAMOND_HOE':0x33E0FF,'WOODEN_SHOVEL':0x8B4513,'STONE_SHOVEL':0x808080,'IRON_SHOVEL':0xDDDDDD,
-    'GOLD_SHOVEL':0xFFD700,'DIAMOND_SHOVEL':0x33E0FF,'BOW':0x8B6914,'FISHING_ROD':0x8B6914,
-    'TNT':0xFF0000,'FLINT_AND_STEEL':0x808080,'BUCKET':0x555555,'WATER_BUCKET':0x4488FF,'LAVA_BUCKET':0xFF4400,
-    'ENDER_PEARL':0x33FF66,'SNOWBALL':0xFFFFFF,'EGG':0xEEDD99,'POTION':0xFF69B4,'EXPERIENCE_BOTTLE':0x88FF00,
-    'BLAZE_ROD':0xFFAA00,'GOLDEN_APPLE':0xFFD700,'ENDER_CHEST':0x003300,'FIREWORK':0x888888,
-    'DIAMOND':0x33E0FF,'EMERALD':0x00CC00,'IRON_INGOT':0xDDDDDD,'GOLD_INGOT':0xFFD700,
-    'REDSTONE':0xCC0000,'GLOWSTONE':0xFFFF44,'BONE':0xDDDDCC,'ARROW':0xFFAA00,'COMPASS':0x888888,'WATCH':0xFFAA00
+
+/* ================================================================
+   STATE
+================================================================ */
+
+const state = {
+
+    loaded: false,
+
+    playing: false,
+
+    currentTime: 0,
+
+    duration: 0,
+
+    speed: 1,
+
+    selectedPlayer: null,
+
+    follow: true,
+
+    names: true,
+
+    blocks: true,
+
+    trail: true,
+
+    version: null,
+
+    replay: null,
+
+    players: new Map(),
+
+    blockChanges: [],
+
+    chat: [],
+
+    cameraTarget: new THREE.Vector3(),
+
+    trailPoints: [],
+
+    materials: new Map(),
+
+    textureCache: new Map(),
+
+    blockGeometryCache: new Map()
 };
-let headGeos = {};
 
-// Cache for per-dimension head geometries
-function getHeadGeo(h) {
-    var key = h || 64;
-    if (headGeos[key]) return headGeos[key];
-    var hs = 0.25;
-    var faceData = [
-        {p:[[ hs, hs,-hs],[ hs, hs, hs],[ hs,-hs,-hs],[ hs,-hs, hs]],u:0,uv:8,w:8,h:8},
-        {p:[[-hs, hs, hs],[-hs, hs,-hs],[-hs,-hs, hs],[-hs,-hs,-hs]],u:16,uv:8,w:8,h:8},
-        {p:[[-hs, hs,-hs],[ hs, hs,-hs],[-hs, hs, hs],[ hs, hs, hs]],u:8,uv:0,w:8,h:8},
-        {p:[[-hs,-hs, hs],[ hs,-hs, hs],[-hs,-hs,-hs],[ hs,-hs,-hs]],u:16,uv:0,w:8,h:8},
-        {p:[[-hs, hs, hs],[ hs, hs, hs],[-hs,-hs, hs],[ hs,-hs, hs]],u:8,uv:8,w:8,h:8},
-        {p:[[ hs, hs,-hs],[-hs, hs,-hs],[ hs,-hs,-hs],[-hs,-hs,-hs]],u:24,uv:8,w:8,h:8}
-    ];
-    var pos = [], uvs = [], idx = [];
-    var o = 0;
-    for (var f = 0; f < 6; f++) {
-        var face = faceData[f];
-        var umin = face.u / 64, umax = (face.u + face.w) / 64;
-        var vmin = face.uv / key, vmax = (face.uv + face.h) / key;
-        for (var vi = 0; vi < 4; vi++) {
-            pos.push(face.p[vi][0], face.p[vi][1], face.p[vi][2]);
-            uvs.push(vi === 0 || vi === 2 ? umin : umax, vi < 2 ? vmin : vmax);
+
+/* ================================================================
+   THREE.JS
+================================================================ */
+
+const canvas =
+    document.getElementById("minecraft-canvas");
+
+const renderer =
+    new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: false,
+        powerPreference: "high-performance"
+    });
+
+renderer.setPixelRatio(
+    Math.min(
+        window.devicePixelRatio || 1,
+        CONFIG.maxPixelRatio
+    )
+);
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+renderer.toneMapping =
+    THREE.ACESFilmicToneMapping;
+
+renderer.toneMappingExposure = 1.15;
+
+
+const scene = new THREE.Scene();
+
+scene.background =
+    new THREE.Color(0x87b9e8);
+
+scene.fog =
+    new THREE.Fog(0x87b9e8, 35, 180);
+
+
+const camera =
+    new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        .05,
+        1000
+    );
+
+camera.position.set(
+    10,
+    7,
+    10
+);
+
+
+const controls =
+    new OrbitControls(
+        camera,
+        renderer.domElement
+    );
+
+controls.enableDamping = true;
+controls.dampingFactor = .08;
+
+controls.minDistance = 1;
+controls.maxDistance = 300;
+
+controls.target.set(0, 0, 0);
+
+
+/* ================================================================
+   LIGHTING
+================================================================ */
+
+const hemi =
+    new THREE.HemisphereLight(
+        0xddeeff,
+        0x445566,
+        1.8
+    );
+
+scene.add(hemi);
+
+
+const sun =
+    new THREE.DirectionalLight(
+        0xffffff,
+        2.2
+    );
+
+sun.position.set(
+    60,
+    100,
+    30
+);
+
+sun.castShadow = true;
+
+sun.shadow.mapSize.set(
+    2048,
+    2048
+);
+
+sun.shadow.camera.left = -100;
+sun.shadow.camera.right = 100;
+sun.shadow.camera.top = 100;
+sun.shadow.camera.bottom = -100;
+
+scene.add(sun);
+
+
+/* ================================================================
+   WORLD
+================================================================ */
+
+const worldGroup =
+    new THREE.Group();
+
+worldGroup.name = "MinecraftWorld";
+
+scene.add(worldGroup);
+
+
+const playersGroup =
+    new THREE.Group();
+
+playersGroup.name = "Players";
+
+scene.add(playersGroup);
+
+
+const trailGroup =
+    new THREE.Group();
+
+trailGroup.name = "Trails";
+
+scene.add(trailGroup);
+
+
+/* ================================================================
+   HELPERS
+================================================================ */
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+
+function show(id) {
+    $(id).style.display = "";
+}
+
+
+function hide(id) {
+    $(id).style.display = "none";
+}
+
+
+function setLoading(text) {
+
+    $("loading").textContent = text;
+
+    show("loading");
+}
+
+
+function hideLoading() {
+    hide("loading");
+}
+
+
+function showError(error) {
+
+    console.error(error);
+
+    $("error-display").textContent =
+        error instanceof Error
+            ? error.stack || error.message
+            : String(error);
+
+    show("error-display");
+
+    hideLoading();
+}
+
+
+function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+}
+
+
+function formatTime(seconds) {
+
+    seconds = Math.max(0, Number(seconds) || 0);
+
+    const minutes =
+        Math.floor(seconds / 60);
+
+    const secs =
+        Math.floor(seconds % 60)
+            .toString()
+            .padStart(2, "0");
+
+    return `${minutes}:${secs}`;
+}
+
+
+function disposeObject(object) {
+
+    object.traverse(child => {
+
+        if (child.geometry) {
+            child.geometry.dispose();
         }
-        idx.push(o, o+1, o+2, o+1, o+3, o+2);
-        o += 4;
-    }
-    var geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-    geo.setIndex(idx);
-    geo.computeVertexNormals();
-    headGeos[key] = geo;
-    return geo;
-}
-let currentWorld = null;
-let projectileMeshes = [];
-let blockChangeMeshes = [];
-let trailMeshes = [];
-let gridMeshes = [];
-let showTrail = true;
-let showGrid = true;
-let showNames = true;
-let showBlockChanges = true;
 
-const BLOCK_COLORS = {
-    1:0x8B4513,2:0x6B8E23,3:0x808080,4:0xB22222,5:0x8B4513,6:0xDAA520,7:0x808080,
-    8:0x4488FF,9:0x0000AA,10:0xFF4400,12:0xD2B48C,13:0x808080,14:0xCC6600,15:0x333333,
-    16:0x808080,17:0x654321,18:0x228B22,19:0xFFCC00,20:0xFFC0CB,21:0x808080,22:0x0000CC,
-    23:0x696969,24:0xD2B48C,25:0xB8860B,26:0xFF6347,27:0x808080,28:0x808080,29:0x8B0000,
-    30:0xFFA500,31:0x228B22,32:0x228B22,33:0x808080,34:0x808080,35:0xFFFFFF,36:0x228B22,
-    37:0x808000,38:0xFF4500,39:0x808000,40:0x800080,41:0xFFD700,42:0xC0C0C0,43:0xC0C0C0,
-    44:0xC0C0C0,45:0xB22222,46:0xFF4500,47:0x808080,48:0x2F4F4F,49:0x4B0082,50:0xFFCC00,
-    51:0xFF4500,52:0x808080,53:0x654321,54:0x808080,55:0xFF0000,56:0x2F4F4F,57:0x00FFFF,
-    58:0x8B4513,59:0x228B22,60:0xD2B48C,61:0x808080,62:0x808080,63:0x808080,64:0x654321,
-    65:0x808080,66:0x808080,67:0x808080,68:0x808080,69:0xFFA500,70:0x808080,71:0xC0C0C0,
-    72:0x654321,73:0x808080,74:0x808080,75:0x800000,76:0xFF4500,77:0x808080,78:0x808080,
-    79:0x0000CD,80:0xFFC0CB,81:0x006400,82:0x808080,83:0x228B22,84:0x8B4513,85:0x654321,
-    86:0xFFA500,87:0x800000,88:0x6B4226,89:0x808000,90:0xFF00FF,91:0xFFCC00,92:0xFFC0CB,
-    93:0x808080,94:0x808080,95:0x0000CD,96:0x808080,97:0x696969,98:0x808080,99:0xFF4500,
-    100:0xFF00FF,101:0x808080,102:0xD2B48C,103:0x800080,104:0x808080,105:0xFF4500,106:0x228B22,
-    107:0x654321,108:0xB22222,109:0x808080,110:0x228B22,111:0x006400,112:0x4B0082,113:0x654321,
-    114:0xB22222,115:0x800080,116:0x808080,117:0x808080,118:0x808080,119:0x000000,120:0x808080,
-    121:0xD2B48C,122:0x800080,123:0xDAA520,124:0xFFA500,125:0x8B4513,126:0x808080,127:0xFF4500,
-    128:0xD2B48C,129:0x808080,130:0x800000,131:0xFF4500,132:0x808080,133:0x00FFFF,134:0x00CC00,
-    135:0xFFCC00,136:0x8B4513,137:0x808080,138:0x00FFFF,139:0x808080,140:0x228B22,141:0xFF4500,
-    142:0x808080,143:0x808080,144:0x808080,145:0x808080,146:0x808080,147:0xD2B48C,148:0xD2B48C,
-    149:0x808080,150:0x228B22,151:0x228B22,152:0xFF0000,153:0x808000,154:0x808080,155:0x808080,
-    156:0xFF4500,157:0x808080,158:0x808080,159:0x6B4226,160:0xFFFFFF,161:0x228B22,162:0x8B4513,
-    163:0x8B4513,164:0x654321,165:0x88FF88,166:0x000000,167:0x808080,168:0x00CCAA,169:0xFFFF88,
-    170:0xDAA520,171:0xFFFFFF,172:0xC0C0C0,173:0x333333,174:0xFFFFFF,175:0x228B22,176:0xFF0000,
-    177:0x808080,178:0x808080,179:0x228B22,180:0xFFA500,181:0x808080,182:0x808080,183:0x8B4513,
-    184:0x8B4513,185:0x8B4513,186:0x8B4513,187:0x654321,188:0x654321,189:0x228B22,190:0x228B22,
-    191:0x228B22,192:0x228B22,193:0x8B4513,194:0x8B4513,195:0x8B4513,196:0x8B4513,197:0x8B4513,
-    198:0x8B4513,199:0x8B4513,200:0x8B4513,201:0x8B4513,202:0x8B4513,203:0x8B4513,204:0x8B4513,
-    205:0x8B4513,206:0x8B4513,207:0x8B4513,208:0x8B4513,209:0x8B4513,210:0x8B4513,211:0x8B4513,
-    212:0x8B4513,213:0x8B4513,214:0x8B4513,215:0x8B4513,216:0x8B4513,217:0x8B4513,218:0x8B4513,
-    219:0x8B4513
-};
-function getBlockColor(id) {
-    if (id === 0) return 0x000000;
-    if (BLOCK_COLORS[id]) return BLOCK_COLORS[id];
-    var h = (id * 2654435761) & 0xFFFFFF;
-    return h | 0x404040;
-}
+        if (child.material) {
 
-const GAMEMODE_NAMES = ['Survival', 'Creative', 'Adventure', 'Spectator'];
-const PLAYER_COLORS = [0x00d6ff, 0xff4444, 0x44ff44, 0xffff44, 0xff44ff, 0x44ffff, 0xff8844, 0x8844ff];
+            const materials =
+                Array.isArray(child.material)
+                    ? child.material
+                    : [child.material];
 
-function init3D() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.002);
+            for (const material of materials) {
 
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 2000);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
-    document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-    ambientLight = new THREE.AmbientLight(0x606080, 1.2);
-    scene.add(ambientLight);
-    dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(100, 200, 100);
-    scene.add(dirLight);
-
-    clock = new THREE.Clock();
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.05;
-    controls.maxDistance = 300;
-
-    window.addEventListener('resize', onResize);
-    animate();
-}
-
-function onResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function animate() {
-    animationId = requestAnimationFrame(animate);
-    if (controls) controls.update();
-
-    if (isPlaying && replayData) {
-        const delta = clock.getDelta() * playSpeed;
-        const frameDuration = 1 / 20;
-        const frameIncrement = Math.max(1, Math.round(delta / frameDuration));
-        const newFrame = currentFrame + frameIncrement;
-
-        if (newFrame >= replayData.frames.length) {
-            currentFrame = 0;
-        } else {
-            currentFrame = newFrame;
-        }
-        updateTimeline();
-        renderFrame(currentFrame);
-    }
-
-    renderer.render(scene, camera);
-    updateBlockHover();
-}
-
-function getTokenFromHash() {
-    const hash = window.location.hash;
-    if (!hash || hash.length < 2) return null;
-    let token = hash.substring(1);
-    if (token.startsWith('!')) token = token.substring(1);
-    token = token.split('/')[0].split('?')[0].trim();
-    return token.length > 0 ? token : null;
-}
-
-async function loadReplay() {
-    const token = document.getElementById('token-field').value.trim();
-    if (!token) {
-        document.getElementById('token-error').textContent = 'Enter a token';
-        return;
-    }
-
-    document.getElementById('loading').style.display = 'block';
-    document.getElementById('token-error').textContent = '';
-
-    try {
-        const resp = await fetch(FIREBASE_URL + '/replays/' + encodeURIComponent(token) + '.json');
-        if (!resp.ok) {
-            throw new Error('Recording not found (HTTP ' + resp.status + ')');
-        }
-        const data = await resp.json();
-        if (!data) {
-            throw new Error('Recording not found or expired');
-        }
-
-        replayData = data;
-        console.log('[FullPlay] Data loaded:', {
-            playerName: data.playerName,
-            chunks: data.chunks ? data.chunks.length : 0,
-            frames: data.frames ? data.frames.length : 0,
-            blockChanges: data.blockChanges ? data.blockChanges.length : 0,
-            firstChunk: data.chunks && data.chunks[0] ? {
-                cx: data.chunks[0].cx,
-                cz: data.chunks[0].cz,
-                yOff: data.chunks[0].yOff,
-                yRange: data.chunks[0].yRange,
-                blocksType: data.chunks[0].blocks ? typeof data.chunks[0].blocks[0] : 'none',
-                blocksLength: data.chunks[0].blocks ? data.chunks[0].blocks.length : 0,
-                firstBlock: data.chunks[0].blocks ? data.chunks[0].blocks[0] : 'none'
-            } : 'no chunks'
-        });
-        onReplayLoaded();
-    } catch (e) {
-        document.getElementById('token-error').textContent = e.message;
-        document.getElementById('loading').style.display = 'none';
-    }
-}
-
-function onReplayLoaded() {
-    document.getElementById('token-input').style.display = 'none';
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('controls').style.display = '';
-    document.getElementById('info-panel').style.display = '';
-    document.getElementById('players-list').style.display = '';
-    document.getElementById('chat-panel').style.display = '';
-
-    console.log('[FullPlay] Chunks: ' + (replayData.chunks ? replayData.chunks.length : 0) +
-        ' | Frames: ' + (replayData.frames ? replayData.frames.length : 0));
-
-    primaryPlayer = replayData.playerUuid;
-    selectedPlayer = primaryPlayer;
-    currentWorld = null;
-
-    document.getElementById('player-label').textContent = replayData.playerName + ' — ' + replayData.triggerCheck;
-    document.getElementById('timeline').max = replayData.frames.length - 1;
-
-    try { buildBlockMeshes(); } catch(e) { var ed=document.getElementById('error-display');ed.style.display='block';ed.textContent='buildBlockMeshes: '+e.message; }
-    loadAllSkins();
-    updatePlayersList();
-    try { renderFrame(0); } catch(e) { var ed=document.getElementById('error-display');ed.style.display='block';ed.textContent='renderFrame: '+e.message; }
-}
-
-function buildBlockMeshes() {
-    blockMeshes.forEach(m => scene.remove(m));
-    blockMeshes = [];
-
-    if (!replayData.chunks || replayData.chunks.length === 0) return;
-
-    const blockList = [];
-
-    for (const chunk of replayData.chunks) {
-        if (currentWorld && chunk.wn && chunk.wn !== currentWorld) continue;
-        const cx = chunk.cx;
-        const cz = chunk.cz;
-        const yOff = chunk.yOff || 0;
-        const yr = chunk.yRange || 384;
-        const blocks = chunk.blocks;
-
-        if (!Array.isArray(blocks)) continue;
-
-        if (blocks.length === 16 * yr * 16) {
-            for (let i = 0; i < blocks.length; i++) {
-                const id = blocks[i];
-                if (id === 0) continue;
-                const x = (i / (yr * 16)) | 0;
-                const rem = i % (yr * 16);
-                const y = ((rem / 16) | 0) + yOff;
-                const z = rem % 16;
-                const color = getBlockColor(id);
-                blockList.push({ wx: cx * 16 + x, wy: y, wz: cz * 16 + z, color: color });
-            }
-        } else if (blocks.length > 0 && typeof blocks[0] === 'number') {
-            for (let i = 0; i < blocks.length; i++) {
-                const id = blocks[i];
-                if (id === 0) continue;
-                const x = (i / (yr * 16)) | 0;
-                const rem = i % (yr * 16);
-                const y = ((rem / 16) | 0) + yOff;
-                const z = rem % 16;
-                const color = getBlockColor(id);
-                blockList.push({ wx: cx * 16 + x, wy: y, wz: cz * 16 + z, color: color });
-            }
-        } else {
-            for (let i = 0; i < blocks.length; i++) {
-                const entry = blocks[i];
-                if (typeof entry === 'string') {
-                    const parts = entry.split(':');
-                    if (parts.length === 2) {
-                        const idx = parseInt(parts[0]);
-                        const id = parseInt(parts[1]);
-                        if (id === 0) continue;
-                        const x = (idx / (yr * 16)) | 0;
-                        const rem = idx % (yr * 16);
-                        const y = ((rem / 16) | 0) + yOff;
-                        const z = rem % 16;
-                        const color = getBlockColor(id);
-                        blockList.push({ wx: cx * 16 + x, wy: y, wz: cz * 16 + z, color: color });
-                    }
+                if (material.map) {
+                    /*
+                     * Do not dispose shared cached textures.
+                     */
                 }
+
+                material.dispose();
             }
         }
-    }
-
-    const colorCounts = {};
-    for (const b of blockList) {
-        const key = b.color.toString();
-        colorCounts[key] = (colorCounts[key] || 0) + 1;
-    }
-
-    const geometries = {};
-    const dummy = new THREE.Object3D();
-    for (const b of blockList) {
-        const colorKey = b.color.toString();
-        if (!geometries[colorKey]) {
-            const geo = new THREE.BoxGeometry(1, 1, 1);
-            const mat = new THREE.MeshLambertMaterial({ color: b.color });
-            geometries[colorKey] = new THREE.InstancedMesh(geo, mat, Math.max(colorCounts[colorKey], 1));
-            geometries[colorKey]._count = 0;
-        }
-        const mesh = geometries[colorKey];
-        dummy.position.set(b.wx, b.wy, b.wz);
-        dummy.updateMatrix();
-        mesh.setMatrixAt(mesh._count, dummy.matrix);
-        mesh._count++;
-        mesh.count = mesh._count;
-        mesh.instanceMatrix.needsUpdate = true;
-    }
-
-    for (const mesh of Object.values(geometries)) {
-        scene.add(mesh);
-        blockMeshes.push(mesh);
-    }
-    console.log('[FullPlay] Built ' + blockList.length + ' blocks in ' + Object.keys(geometries).length + ' color groups');
-}
-
-function updatePlayersList() {
-    const container = document.getElementById('players-container');
-    container.innerHTML = '';
-    if (!replayData || !replayData.frames.length) return;
-
-    const firstFrame = replayData.frames[0];
-    const uuids = Object.keys(firstFrame.players);
-    const colorIdx = {};
-
-    uuids.forEach((uuid, i) => {
-        const p = firstFrame.players[uuid];
-        const div = document.createElement('div');
-        div.className = 'player-entry' + (uuid === selectedPlayer ? ' selected' : '');
-        div.style.borderLeft = '3px solid #' + PLAYER_COLORS[i % PLAYER_COLORS.length].toString(16).padStart(6, '0');
-        div.innerHTML = '<div class="player-name">' + esc(p.name) + '</div><div class="player-pos">X:' + p.x.toFixed(1) + ' Y:' + p.y.toFixed(1) + ' Z:' + p.z.toFixed(1) + '</div>';
-        div.onclick = function() { selectedPlayer = uuid; updatePlayersList(); };
-        container.appendChild(div);
-        colorIdx[uuid] = i;
     });
 }
 
-function renderFrame(frameIdx) {
-    if (!replayData || frameIdx >= replayData.frames.length) return;
 
-    const frame = replayData.frames[frameIdx];
-    const tick = frame.tick;
-    updateSky(frame.wt);
+/* ================================================================
+   REPLAY LOADING
+================================================================ */
 
-    const frameWorld = frame.wn || null;
-    if (frameWorld && frameWorld !== currentWorld) {
-        currentWorld = frameWorld;
-        buildBlockMeshes();
+window.loadReplayFromInput = async function() {
+
+    const input =
+        $("token").value.trim();
+
+    if (!input) {
+        showError("Inserisci un replay token o URL.");
+        return;
     }
 
-    while (Object.keys(playerMeshes).length > 0) {
-        const key = Object.keys(playerMeshes)[0];
-        scene.remove(playerMeshes[key]);
-        delete playerMeshes[key];
+    hide("token-input");
+    hide("error-display");
+
+    setLoading("Loading replay data...");
+
+    try {
+
+        const replay =
+            await fetchReplay(input);
+
+        await initializeReplay(replay);
+
+    } catch (error) {
+
+        showError(error);
+
+        show("token-input");
     }
-    for (let pi = 0; pi < projectileMeshes.length; pi++) {
-        scene.remove(projectileMeshes[pi]);
+};
+
+
+async function fetchReplay(input) {
+
+    /*
+     * Direct JSON URL.
+     */
+    if (
+        input.startsWith("http://") ||
+        input.startsWith("https://") ||
+        input.endsWith(".json")
+    ) {
+
+        const response =
+            await fetch(input);
+
+        if (!response.ok) {
+            throw new Error(
+                `Replay request failed: ${response.status}`
+            );
+        }
+
+        return await response.json();
     }
-    projectileMeshes = [];
-    for (let bi = 0; bi < blockChangeMeshes.length; bi++) {
-        scene.remove(blockChangeMeshes[bi]);
+
+
+    /*
+     * Inline JSON.
+     */
+    if (
+        input.startsWith("{") ||
+        input.startsWith("[")
+    ) {
+
+        return JSON.parse(input);
     }
-    blockChangeMeshes = [];
-    for (let ti = 0; ti < trailMeshes.length; ti++) {
-        scene.remove(trailMeshes[ti]);
+
+
+    /*
+     * Token endpoint.
+     */
+    const url =
+        CONFIG.replayEndpoint +
+        encodeURIComponent(input);
+
+    const response =
+        await fetch(url, {
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+    if (!response.ok) {
+
+        throw new Error(
+            `Unable to load replay (${response.status}).\n\n` +
+            `Endpoint used:\n${url}\n\n` +
+            `Configure CONFIG.replayEndpoint with your actual API.`
+        );
     }
-    trailMeshes = [];
-    for (let gi = 0; gi < gridMeshes.length; gi++) {
-        scene.remove(gridMeshes[gi]);
+
+    return await response.json();
+}
+
+
+/* ================================================================
+   REPLAY INITIALIZATION
+================================================================ */
+
+async function initializeReplay(replay) {
+
+    state.replay = replay;
+
+    state.version =
+        detectMinecraftVersion(replay);
+
+    state.duration =
+        detectReplayDuration(replay);
+
+    state.currentTime = 0;
+
+    state.players.clear();
+
+    state.blockChanges =
+        Array.isArray(replay.blockChanges)
+            ? replay.blockChanges
+            : [];
+
+    state.chat =
+        Array.isArray(replay.chat)
+            ? replay.chat
+            : [];
+
+
+    setLoading(
+        state.version
+            ? `Loading Minecraft ${state.version} assets...`
+            : "Loading Minecraft assets..."
+    );
+
+
+    await loadVersionAssets(
+        state.version
+    );
+
+
+    buildWorld(
+        replay
+    );
+
+
+    buildPlayers(
+        replay
+    );
+
+
+    renderChat(
+        replay
+    );
+
+
+    populatePlayersList();
+
+
+    $("timeline").max =
+        Math.max(1, state.duration);
+
+    $("timeline").value = 0;
+
+
+    show("players-list");
+    show("info-panel");
+    show("chat-panel");
+    show("controls");
+
+
+    state.loaded = true;
+
+    hideLoading();
+
+    updateReplayUI();
+
+    requestAnimationFrame(animationLoop);
+}
+
+
+/* ================================================================
+   VERSION DETECTION
+================================================================ */
+
+function detectMinecraftVersion(replay) {
+
+    return (
+        replay.version ||
+        replay.minecraftVersion ||
+        replay.serverVersion ||
+        replay.protocolVersion ||
+        replay.meta?.version ||
+        replay.metadata?.minecraftVersion ||
+        null
+    );
+}
+
+
+function detectReplayDuration(replay) {
+
+    if (Number.isFinite(replay.duration)) {
+        return Number(replay.duration);
     }
-    gridMeshes = [];
 
-    const uuids = Object.keys(frame.players);
-    uuids.forEach(function(uuid, i) {
-        const p = frame.players[uuid];
-        const color = PLAYER_COLORS[i % PLAYER_COLORS.length];
+    if (Number.isFinite(replay.length)) {
+        return Number(replay.length);
+    }
 
-        const group = new THREE.Group();
-        group.position.set(p.x, p.y, p.z);
+    if (Array.isArray(replay.events)) {
 
-        const skinTex = skinTextures[uuid];
-        const skinMat = skinTex
-            ? new THREE.MeshLambertMaterial({ map: skinTex })
-            : new THREE.MeshLambertMaterial({ color: color });
+        let max = 0;
 
-        const yawRad = THREE.MathUtils.degToRad(p.yaw || 0);
-        const pitchRad = THREE.MathUtils.degToRad(p.pitch || 0);
+        for (const event of replay.events) {
 
-        const bodyGroup = new THREE.Group();
+            const t =
+                Number(
+                    event.time ??
+                    event.timestamp ??
+                    event.t ??
+                    0
+                );
 
-        const bodyGeo = new THREE.BoxGeometry(0.6, 0.75, 0.3);
-        const body = new THREE.Mesh(bodyGeo, skinMat.clone());
-        body.position.y = 0.375;
-        bodyGroup.add(body);
+            max = Math.max(max, t);
+        }
 
-        var dim = skinDimensions[uuid];
-        var headH = (dim && dim.h) || 64;
-        var headGeo = getHeadGeo(headH);
-        var head = new THREE.Mesh(headGeo, skinMat.clone());
-        head.position.set(0, 0.9, 0);
-        head.rotation.x = pitchRad;
-        bodyGroup.add(head);
+        return max;
+    }
 
-        var _speed = Math.sqrt(p.vx * p.vx + p.vz * p.vz) || 0;
-        var _swing = Math.sin(frame.tick * Math.min(_speed * 3, 6)) * Math.min(_speed * 2, 0.5) || 0;
+    return 0;
+}
 
-        try {
 
-        var _mkLimb = function(box, px, py, oy, swing, axis) {
-            var g = new THREE.Group();
-            g.position.set(px, py, 0);
-            var m = new THREE.Mesh(box, skinMat.clone());
-            m.position.set(0, oy, 0);
-            g.add(m);
-            g.rotation[axis] = swing;
-            bodyGroup.add(g);
-            return g;
+/* ================================================================
+   VERSION ASSETS
+================================================================
+   Expected optional asset structure:
+
+   /assets/minecraft/<version>/
+       blocks.json
+       textures/
+           ...
+   
+   The actual vanilla asset files can be generated from the
+   appropriate Minecraft client/resource pack.
+
+   The renderer does NOT assume that a modern texture layout is
+   compatible with an old Minecraft version.
+================================================================ */
+
+async function loadVersionAssets(version) {
+
+    state.textureCache.clear();
+
+    state.materials.clear();
+
+
+    /*
+     * If no version was supplied, use fallback rendering.
+     */
+    if (!version) {
+        return;
+    }
+
+
+    const base =
+        CONFIG.assetEndpoint +
+        encodeURIComponent(version) +
+        "/";
+
+
+    try {
+
+        const response =
+            await fetch(
+                base + "blocks.json"
+            );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const definitions =
+            await response.json();
+
+        state.blockDefinitions =
+            definitions;
+
+    } catch {
+
+        /*
+         * Asset metadata is optional.
+         * The renderer falls back to procedural textures.
+         */
+        state.blockDefinitions = {};
+    }
+}
+
+
+/* ================================================================
+   TEXTURES
+================================================================ */
+
+function makeFallbackTexture(
+    color = "#777777"
+) {
+
+    const canvas =
+        document.createElement("canvas");
+
+    canvas.width = 16;
+    canvas.height = 16;
+
+    const ctx =
+        canvas.getContext("2d");
+
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, 16, 16);
+
+    /*
+     * Pixelated noise/detail.
+     */
+    for (let y = 0; y < 16; y++) {
+
+        for (let x = 0; x < 16; x++) {
+
+            const n =
+                Math.random() * 20 - 10;
+
+            const v =
+                clamp(
+                    120 + n,
+                    0,
+                    255
+                );
+
+            ctx.fillStyle =
+                `rgb(${v},${v},${v})`;
+
+            if (Math.random() > .65) {
+                ctx.fillRect(x, y, 1, 1);
+            }
+        }
+    }
+
+
+    const texture =
+        new THREE.CanvasTexture(canvas);
+
+    texture.colorSpace =
+        THREE.SRGBColorSpace;
+
+    texture.magFilter =
+        THREE.NearestFilter;
+
+    texture.minFilter =
+        THREE.NearestMipmapNearestFilter;
+
+    texture.generateMipmaps = true;
+
+    return texture;
+}
+
+
+async function loadTexture(path) {
+
+    if (state.textureCache.has(path)) {
+        return state.textureCache.get(path);
+    }
+
+    const promise =
+        new Promise((resolve, reject) => {
+
+            const loader =
+                new THREE.TextureLoader();
+
+            loader.load(
+                path,
+                texture => {
+
+                    texture.colorSpace =
+                        THREE.SRGBColorSpace;
+
+                    texture.magFilter =
+                        THREE.NearestFilter;
+
+                    texture.minFilter =
+                        THREE.NearestMipmapNearestFilter;
+
+                    texture.generateMipmaps =
+                        true;
+
+                    resolve(texture);
+                },
+
+                undefined,
+
+                reject
+            );
+        });
+
+    state.textureCache.set(
+        path,
+        promise
+    );
+
+    return promise;
+}
+
+
+/* ================================================================
+   BLOCK MATERIALS
+================================================================ */
+
+function getBlockColor(blockId) {
+
+    const id =
+        String(blockId || "").toLowerCase();
+
+
+    if (id.includes("grass")) return "#69a84b";
+    if (id.includes("leaves")) return "#3f7d32";
+    if (id.includes("water")) return "#3f76e4";
+    if (id.includes("lava")) return "#ff6b18";
+    if (id.includes("stone")) return "#777777";
+    if (id.includes("cobblestone")) return "#666666";
+    if (id.includes("dirt")) return "#8b5a35";
+    if (id.includes("sand")) return "#d9c27c";
+    if (id.includes("gravel")) return "#85827c";
+    if (id.includes("oak")) return "#9a6b3e";
+    if (id.includes("log")) return "#765235";
+    if (id.includes("brick")) return "#a84d3b";
+    if (id.includes("glass")) return "#b7e8ff";
+    if (id.includes("snow")) return "#f0f5f5";
+    if (id.includes("ice")) return "#a6dff5";
+    if (id.includes("gold")) return "#f5c542";
+    if (id.includes("iron")) return "#d0d0d0";
+    if (id.includes("diamond")) return "#4ee4e8";
+    if (id.includes("emerald")) return "#27d66f";
+    if (id.includes("redstone")) return "#c92323";
+    if (id.includes("coal")) return "#252525";
+
+    return "#777777";
+}
+
+
+function getBlockMaterial(blockId) {
+
+    const key =
+        String(blockId);
+
+    if (state.materials.has(key)) {
+        return state.materials.get(key);
+    }
+
+
+    const material =
+        new THREE.MeshLambertMaterial({
+            color: getBlockColor(key),
+            side: THREE.FrontSide
+        });
+
+
+    const id =
+        key.toLowerCase();
+
+    if (
+        id.includes("glass") ||
+        id.includes("leaves") ||
+        id.includes("water") ||
+        id.includes("ice")
+    ) {
+
+        material.transparent = true;
+
+        material.opacity =
+            id.includes("glass")
+                ? .55
+                : .75;
+
+        material.depthWrite =
+            !id.includes("water");
+    }
+
+
+    state.materials.set(
+        key,
+        material
+    );
+
+    return material;
+}
+
+
+/* ================================================================
+   BLOCK GEOMETRY
+================================================================ */
+
+function getBlockGeometry(blockId) {
+
+    const id =
+        String(blockId);
+
+    if (state.blockGeometryCache.has(id)) {
+        return state.blockGeometryCache.get(id);
+    }
+
+    /*
+     * Base Minecraft cube.
+     *
+     * Special block-state geometry can be plugged in here using
+     * the version-specific model data.
+     */
+    const geometry =
+        new THREE.BoxGeometry(
+            1,
+            1,
+            1
+        );
+
+    state.blockGeometryCache.set(
+        id,
+        geometry
+    );
+
+    return geometry;
+}
+
+
+function createBlock(
+    blockId,
+    x,
+    y,
+    z
+) {
+
+    const mesh =
+        new THREE.Mesh(
+            getBlockGeometry(blockId),
+            getBlockMaterial(blockId)
+        );
+
+    mesh.position.set(
+        x + .5,
+        y + .5,
+        z + .5
+    );
+
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    mesh.userData.blockId =
+        blockId;
+
+    return mesh;
+}
+
+
+/* ================================================================
+   WORLD BUILDING
+================================================================ */
+
+function clearGroup(group) {
+
+    while (group.children.length) {
+
+        const child =
+            group.children.pop();
+
+        disposeObject(child);
+    }
+}
+
+
+function buildWorld(replay) {
+
+    clearGroup(worldGroup);
+
+
+    /*
+     * Supported simple format:
+     *
+     * replay.blocks = [
+     *   {
+     *      x: 0,
+     *      y: 64,
+     *      z: 0,
+     *      id: "minecraft:grass_block"
+     *   }
+     * ]
+     *
+     * Chunk-based data can be adapted here without changing
+     * the UI.
+     */
+
+    const blocks =
+        Array.isArray(replay.blocks)
+            ? replay.blocks
+            : [];
+
+
+    const chunkGroups =
+        new Map();
+
+
+    for (const block of blocks) {
+
+        const x =
+            Number(block.x || 0);
+
+        const y =
+            Number(block.y || 0);
+
+        const z =
+            Number(block.z || 0);
+
+        const id =
+            block.id ||
+            block.block ||
+            block.type ||
+            "minecraft:stone";
+
+
+        const cx =
+            Math.floor(x / CONFIG.chunkSize);
+
+        const cz =
+            Math.floor(z / CONFIG.chunkSize);
+
+        const key =
+            `${cx},${cz}`;
+
+
+        let chunk =
+            chunkGroups.get(key);
+
+        if (!chunk) {
+
+            chunk =
+                new THREE.Group();
+
+            chunk.name =
+                `Chunk ${key}`;
+
+            chunkGroups.set(
+                key,
+                chunk
+            );
+
+            worldGroup.add(chunk);
+        }
+
+
+        chunk.add(
+            createBlock(
+                id,
+                x,
+                y,
+                z
+            )
+        );
+    }
+}
+
+
+/* ================================================================
+   PLAYERS
+================================================================ */
+
+function buildPlayers(replay) {
+
+    playersGroup.clear();
+
+    state.players.clear();
+
+
+    const players =
+        Array.isArray(replay.players)
+            ? replay.players
+            : [];
+
+
+    for (const data of players) {
+
+        const player =
+            createPlayer(data);
+
+        state.players.set(
+            data.id ??
+            data.uuid ??
+            data.name,
+            {
+                data,
+                object: player
+            }
+        );
+    }
+
+
+    if (
+        state.players.size &&
+        !state.selectedPlayer
+    ) {
+
+        state.selectedPlayer =
+            state.players.keys().next().value;
+    }
+}
+
+
+function createPlayer(data) {
+
+    const group =
+        new THREE.Group();
+
+    group.name =
+        data.name || "Player";
+
+
+    /*
+     * Simple Minecraft-like player.
+     *
+     * The player skin system can be added separately using the
+     * same version-aware asset mechanism as blocks.
+     */
+
+    const bodyMaterial =
+        new THREE.MeshLambertMaterial({
+            color: 0x4b72c9
+        });
+
+
+    const body =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                .6,
+                1.1,
+                .35
+            ),
+            bodyMaterial
+        );
+
+    body.position.y =
+        1.05;
+
+    body.castShadow = true;
+
+    group.add(body);
+
+
+    const headMaterial =
+        new THREE.MeshLambertMaterial({
+            color: 0xd49a72
+        });
+
+
+    const head =
+        new THREE.Mesh(
+            new THREE.BoxGeometry(
+                .55,
+                .55,
+                .55
+            ),
+            headMaterial
+        );
+
+    head.position.y =
+        1.88;
+
+    head.castShadow = true;
+
+    group.add(head);
+
+
+    group.userData.player =
+        data;
+
+
+    playersGroup.add(group);
+
+    return group;
+}
+
+
+/* ================================================================
+   PLAYER TIMELINE SAMPLING
+================================================================ */
+
+function getPlayerStateAt(
+    data,
+    time
+) {
+
+    /*
+     * Supported formats:
+     *
+     * data.frames
+     * data.timeline
+     * data.position
+     *
+     * The function deliberately accepts several common structures.
+     */
+
+    const frames =
+        data.frames ||
+        data.timeline ||
+        data.states;
+
+
+    if (
+        !Array.isArray(frames) ||
+        frames.length === 0
+    ) {
+
+        return {
+            x: Number(data.x || data.position?.x || 0),
+            y: Number(data.y || data.position?.y || 0),
+            z: Number(data.z || data.position?.z || 0),
+            yaw: Number(data.yaw || 0),
+            pitch: Number(data.pitch || 0),
+            health: Number(data.health ?? 20),
+            food: Number(data.food ?? 20),
+            ground: Boolean(data.ground),
+            gamemode: data.gamemode || "-",
+            held: data.held || "-",
+            velocity: data.velocity || { x: 0, y: 0, z: 0 },
+            effects: data.effects || []
         };
+    }
 
-        _mkLimb(new THREE.BoxGeometry(0.2, 0.75, 0.2), -0.45, 0.75, -0.375, _swing, 'x');
-        _mkLimb(new THREE.BoxGeometry(0.2, 0.75, 0.2), 0.45, 0.75, -0.375, -_swing, 'x');
-        _mkLimb(new THREE.BoxGeometry(0.2, 0.75, 0.2), -0.15, 0, -0.375, -_swing, 'x');
-        _mkLimb(new THREE.BoxGeometry(0.2, 0.75, 0.2), 0.15, 0, -0.375, _swing, 'x');
 
-        bodyGroup.rotation.y = -yawRad;
+    let previous =
+        frames[0];
 
-        var dirEnd = new THREE.Vector3(0, 0.6, -2);
-        dirEnd.applyEuler(new THREE.Euler(pitchRad, 0, 0));
-        dirEnd.applyEuler(new THREE.Euler(0, -yawRad, 0));
-        var lineGeo = new THREE.BufferGeometry().setFromPoints([
-            new THREE.Vector3(0, 0.6, 0), dirEnd
-        ]);
-        var lineMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 });
-        var dirLine = new THREE.Line(lineGeo, lineMat);
-        bodyGroup.add(dirLine);
+    let next =
+        frames[frames.length - 1];
 
-        if (p.armor) {
-            var armorColors = {
-                'LEATHER_BOOTS':0x8B4513,'LEATHER_LEGGINGS':0x8B4513,'LEATHER_CHESTPLATE':0x8B4513,'LEATHER_HELMET':0x8B4513,
-                'CHAINMAIL_BOOTS':0xC0C0C0,'CHAINMAIL_LEGGINGS':0xC0C0C0,'CHAINMAIL_CHESTPLATE':0xC0C0C0,'CHAINMAIL_HELMET':0xC0C0C0,
-                'IRON_BOOTS':0xDDDDDD,'IRON_LEGGINGS':0xDDDDDD,'IRON_CHESTPLATE':0xDDDDDD,'IRON_HELMET':0xDDDDDD,
-                'GOLD_BOOTS':0xFFD700,'GOLD_LEGGINGS':0xFFD700,'GOLD_CHESTPLATE':0xFFD700,'GOLD_HELMET':0xFFD700,
-                'DIAMOND_BOOTS':0x33E0FF,'DIAMOND_LEGGINGS':0x33E0FF,'DIAMOND_CHESTPLATE':0x33E0FF,'DIAMOND_HELMET':0x33E0FF
-            };
-            var armorOrder = [
-                { piece: 'BOOTS', box: new THREE.BoxGeometry(0.28, 0.06, 0.12), y: -0.72 },
-                { piece: 'LEGGINGS', box: new THREE.BoxGeometry(0.28, 0.35, 0.14), y: -0.18 },
-                { piece: 'CHESTPLATE', box: new THREE.BoxGeometry(0.34, 0.3, 0.16), y: 0.35 },
-                { piece: 'HELMET', box: new THREE.BoxGeometry(0.54, 0.08, 0.54), y: 1.12 }
-            ];
-            for (var ai = 0; ai < 4 && ai < p.armor.length; ai++) {
-                var pieceName = p.armor[ai];
-                if (!pieceName) continue;
-                var ao = armorOrder[ai];
-                var ac = armorColors[pieceName];
-                if (ac) {
-                    var armorMat = new THREE.MeshLambertMaterial({ color: ac, transparent: true, opacity: 0.35 });
-                    var armorMesh = new THREE.Mesh(ao.box, armorMat);
-                    armorMesh.position.set(0, ao.y, 0);
-                    bodyGroup.add(armorMesh);
-                }
-            }
-        }
 
-        if (p.held && p.held !== 'AIR') {
-            var itemColor = ITEM_COLORS[p.held] || 0x888888;
-            var heldGeo = new THREE.BoxGeometry(0.12, 0.35, 0.12);
-            var heldMat = new THREE.MeshLambertMaterial({ color: itemColor });
-            var heldMesh = new THREE.Mesh(heldGeo, heldMat);
-            heldMesh.position.set(0.55, 0.1, -0.15);
-            heldMesh.rotation.x = -0.5;
-            bodyGroup.add(heldMesh);
-        }
+    for (let i = 0; i < frames.length; i++) {
 
-        group.add(bodyGroup);
+        const frame =
+            frames[i];
 
-        if (showNames) {
-            var nameCanvas = document.createElement('canvas');
-        nameCanvas.width = 256;
-        nameCanvas.height = 64;
-        var ctx = nameCanvas.getContext('2d');
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.beginPath();
-        ctx.moveTo(16, 8);
-        ctx.lineTo(240, 8);
-        ctx.quadraticCurveTo(252, 8, 252, 20);
-        ctx.lineTo(252, 44);
-        ctx.quadraticCurveTo(252, 56, 240, 56);
-        ctx.lineTo(16, 56);
-        ctx.quadraticCurveTo(4, 56, 4, 44);
-        ctx.lineTo(4, 20);
-        ctx.quadraticCurveTo(4, 8, 16, 8);
-        ctx.closePath();
-        ctx.fill();
-        ctx.font = 'Bold 28px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = uuid === selectedPlayer ? '#00d6ff' : '#ffffff';
-        ctx.fillText(p.name, 128, 34);
-        var nameTex = new THREE.CanvasTexture(nameCanvas);
-        nameTex.minFilter = THREE.LinearFilter;
-        var nameMat = new THREE.SpriteMaterial({ map: nameTex, transparent: true, depthWrite: false, depthTest: false });
-        var nameSprite = new THREE.Sprite(nameMat);
-        nameSprite.scale.set(1.6, 0.4, 1);
-        nameSprite.position.set(0, 1.35, 0);
-        group.add(nameSprite);
-        }
-
-        if (p.hp !== undefined) {
-            var hpW = uuid === selectedPlayer ? 0.6 : 0.4;
-            var hpR = p.hp / 20;
-            var hBg = new THREE.Mesh(
-                new THREE.PlaneGeometry(hpW, 0.05),
-                new THREE.MeshBasicMaterial({ color: 0x333333, side: THREE.DoubleSide })
+        const t =
+            Number(
+                frame.time ??
+                frame.t ??
+                0
             );
-            hBg.position.set(0, uuid === selectedPlayer ? 1.5 : 1.2, 0);
-            group.add(hBg);
-            var hFg = new THREE.Mesh(
-                new THREE.PlaneGeometry(hpW * hpR, 0.05),
-                new THREE.MeshBasicMaterial({ color: hpR > 0.5 ? 0x44ff44 : hpR > 0.25 ? 0xffff44 : 0xff4444, side: THREE.DoubleSide })
+
+        if (t <= time) {
+            previous = frame;
+        }
+
+        if (t >= time) {
+            next = frame;
+            break;
+        }
+    }
+
+
+    const t0 =
+        Number(
+            previous.time ??
+            previous.t ??
+            0
+        );
+
+    const t1 =
+        Number(
+            next.time ??
+            next.t ??
+            t0
+        );
+
+
+    const alpha =
+        t1 === t0
+            ? 0
+            : clamp(
+                (time - t0) /
+                (t1 - t0),
+                0,
+                1
             );
-            hFg.position.set(-(hpW * (1 - hpR)) / 2, uuid === selectedPlayer ? 1.5 : 1.2, 0);
-            group.add(hFg);
-        }
 
-        scene.add(group);
-        playerMeshes[uuid] = group;
-    } catch(e) { console.error('[FullPlay] Player render error for ' + uuid + ':', e); document.getElementById('error-display').style.display='block'; document.getElementById('error-display').textContent = 'Player ' + p.name + ': ' + e.message; }
-    });
 
-    if (replayData.projectiles && replayData.projectiles.length > 0) {
-        const bulletGeo = new THREE.SphereGeometry(0.15, 8, 8);
-        const projColors = { 'Arrow':0xffaa00, 'Snowball':0xffffff, 'Egg':0xeedd99, 'EnderPearl':0x33ff66, 'Fireball':0xff4400, 'Trident':0x33aaff };
-        const frameTick = frame.tick;
-        for (const proj of replayData.projectiles) {
-            if (proj.t === frameTick) {
-                const pc = projColors[proj.type] || 0xff00ff;
-                const pMat = new THREE.MeshLambertMaterial({ color: pc, emissive: pc, emissiveIntensity: 0.3 });
-                const pMesh = new THREE.Mesh(bulletGeo, pMat);
-                pMesh.position.set(proj.x, proj.y, proj.z);
-                scene.add(pMesh);
-                if (!projectileMeshes) projectileMeshes = [];
-                projectileMeshes.push(pMesh);
-            }
-        }
+    return interpolatePlayerState(
+        previous,
+        next,
+        alpha
+    );
+}
+
+
+function interpolatePlayerState(
+    a,
+    b,
+    alpha
+) {
+
+    const av =
+        a.position || a;
+
+    const bv =
+        b.position || b;
+
+
+    return {
+
+        x: THREE.MathUtils.lerp(
+            Number(av.x || 0),
+            Number(bv.x ?? av.x ?? 0),
+            alpha
+        ),
+
+        y: THREE.MathUtils.lerp(
+            Number(av.y || 0),
+            Number(bv.y ?? av.y ?? 0),
+            alpha
+        ),
+
+        z: THREE.MathUtils.lerp(
+            Number(av.z || 0),
+            Number(bv.z ?? av.z ?? 0),
+            alpha
+        ),
+
+        yaw:
+            Number(
+                a.yaw ??
+                0
+            ),
+
+        pitch:
+            Number(
+                a.pitch ??
+                0
+            ),
+
+        health:
+            Number(
+                a.health ??
+                b.health ??
+                20
+            ),
+
+        food:
+            Number(
+                a.food ??
+                b.food ??
+                20
+            ),
+
+        ground:
+            Boolean(
+                a.ground ??
+                b.ground
+            ),
+
+        gamemode:
+            a.gamemode ??
+            b.gamemode ??
+            "-",
+
+        held:
+            a.held ??
+            b.held ??
+            "-",
+
+        velocity:
+            a.velocity ??
+            b.velocity ??
+            { x: 0, y: 0, z: 0 },
+
+        effects:
+            a.effects ??
+            b.effects ??
+            []
+    };
+}
+
+
+/* ================================================================
+   PLAYER LIST
+================================================================ */
+
+function populatePlayersList() {
+
+    const container =
+        $("players-container");
+
+    container.innerHTML = "";
+
+
+    for (const [id, entry] of state.players) {
+
+        const data =
+            entry.data;
+
+
+        const element =
+            document.createElement("div");
+
+        element.className =
+            "player-entry";
+
+
+        const name =
+            document.createElement("span");
+
+        name.className =
+            "player-name";
+
+        name.textContent =
+            data.name || id;
+
+
+        const hp =
+            document.createElement("span");
+
+        hp.className =
+            "player-hp";
+
+        hp.textContent =
+            "20";
+
+
+        const pos =
+            document.createElement("span");
+
+        pos.className =
+            "player-pos";
+
+        pos.textContent =
+            "0, 0, 0";
+
+
+        element.append(
+            name,
+            hp,
+            pos
+        );
+
+
+        element.onclick =
+            () => selectPlayer(id);
+
+
+        element.dataset.id =
+            id;
+
+
+        container.appendChild(
+            element
+        );
     }
+}
 
-    if (showBlockChanges && replayData.blockChanges && replayData.blockChanges.length > 0) {
-        var bcTick = frame.tick;
-        for (var bcIdx = 0; bcIdx < replayData.blockChanges.length; bcIdx++) {
-            var bc = replayData.blockChanges[bcIdx];
-            if (bc.t === bcTick) {
-                var bcColor = getBlockColor(bc.m);
-                var bcGeo = new THREE.BoxGeometry(1.05, 1.05, 1.05);
-                var bcMat = new THREE.MeshLambertMaterial({ color: bcColor, transparent: true, opacity: 0.6, emissive: bcColor, emissiveIntensity: 0.5 });
-                var bcMesh = new THREE.Mesh(bcGeo, bcMat);
-                bcMesh.position.set(bc.x + 0.5, bc.y + 0.5, bc.z + 0.5);
-                scene.add(bcMesh);
-                blockChangeMeshes.push(bcMesh);
-            }
-        }
-    }
 
-    if (showTrail) {
-        for (var tuuid in frame.players) {
-            if (!trailData[tuuid]) trailData[tuuid] = [];
-            var tp = frame.players[tuuid];
-            var trailArr = trailData[tuuid];
-            trailArr.push({ x: tp.x, y: tp.y + 0.1, z: tp.z });
-            while (trailArr.length > 200) trailArr.shift();
-            if (trailArr.length > 2) {
-                var linePoints = [];
-                for (var tli = 0; tli < trailArr.length; tli++) {
-                    linePoints.push(new THREE.Vector3(trailArr[tli].x, trailArr[tli].y, trailArr[tli].z));
-                }
-                var lineGeo = new THREE.BufferGeometry().setFromPoints(linePoints);
-                var trailColor = tuuid === selectedPlayer ? 0x00d6ff : 0x888888;
-                var lineMat = new THREE.LineBasicMaterial({ color: trailColor, transparent: true, opacity: 0.3 });
-                var line = new THREE.Line(lineGeo, lineMat);
-                scene.add(line);
-                trailMeshes.push(line);
-            }
-        }
-    }
+function selectPlayer(id) {
 
-    if (followTarget && playerMeshes[selectedPlayer]) {
-        const pos = playerMeshes[selectedPlayer].position;
-        camera.position.set(pos.x + 5, pos.y + 3, pos.z + 5);
-        controls.target.copy(pos);
-        controls.update();
-    }
+    state.selectedPlayer = id;
 
-    if (frame.chat && frame.chat.length > 0) {
-        const chatPanel = document.getElementById('chat-panel');
-        frame.chat.forEach(function(c) {
-            chatPanel.innerHTML += '<div class="chat-msg"><span class="chat-player">' + esc(c.p) + ': </span><span class="chat-text">' + esc(c.m) + '</span></div>';
+    updatePlayerSelection();
+
+    updateReplayUI();
+}
+
+
+function updatePlayerSelection() {
+
+    document
+        .querySelectorAll(".player-entry")
+        .forEach(element => {
+
+            element.classList.toggle(
+                "selected",
+                element.dataset.id ===
+                String(state.selectedPlayer)
+            );
         });
-        chatPanel.scrollTop = chatPanel.scrollHeight;
-    }
-
-    updateInfoPanel(frame);
-    updatePlayersListPosition(frame);
 }
 
-function updateInfoPanel(frame) {
-    if (!selectedPlayer || !frame.players[selectedPlayer]) return;
-    const p = frame.players[selectedPlayer];
 
-    document.getElementById('info-title').textContent = p.name;
-    document.getElementById('info-world').textContent = frame.wn || 'unknown';
-    var wt = frame.wt;
-    if (wt !== undefined) {
-        var mcTime = ((wt % 24000) + 24000) % 24000;
-        var hours = Math.floor(mcTime / 1000) + 6;
-        var mins = Math.floor((mcTime % 1000) / 1000 * 60);
-        var period = hours >= 12 ? 'PM' : 'AM';
-        if (hours > 12) hours -= 12;
-        if (hours === 0) hours = 12;
-        var phase = mcTime < 12000 ? 'Day' : mcTime < 13000 ? 'Sunset' : mcTime < 23000 ? 'Night' : 'Sunrise';
-        document.getElementById('info-mctime').textContent = hours + ':' + mins.toString().padStart(2,'0') + ' ' + period + ' (' + phase + ')';
-    } else {
-        document.getElementById('info-mctime').textContent = 'unknown';
-    }
-    document.getElementById('info-pos').textContent = p.x.toFixed(2) + ', ' + p.y.toFixed(2) + ', ' + p.z.toFixed(2);
-    document.getElementById('info-vel').textContent = p.vx.toFixed(3) + ', ' + p.vy.toFixed(3) + ', ' + p.vz.toFixed(3);
-    document.getElementById('info-look').textContent = (p.yaw|0) + '\u00b0 / ' + (p.pitch|0) + '\u00b0';
-    document.getElementById('info-hp').textContent = p.hp.toFixed(1) + ' / 20';
-    document.getElementById('info-food').textContent = p.food + ' / 20' + (p.sat !== undefined ? ' (' + p.sat.toFixed(1) + ' sat)' : '');
-    document.getElementById('info-ground').textContent = p.g ? 'Yes' : 'No';
-    document.getElementById('info-gm').textContent = GAMEMODE_NAMES[p.gm] || 'Unknown';
-    document.getElementById('info-held').textContent = p.held || 'AIR';
-    document.getElementById('info-speed').textContent = Math.sqrt(p.vx*p.vx + p.vy*p.vy + p.vz*p.vz).toFixed(3) + ' m/s';
+/* ================================================================
+   CHAT
+================================================================ */
 
-    var armorStr = '';
-    if (p.armor) {
-        var armorLabels = ['Boots', 'Legs', 'Chest', 'Head'];
-        for (var ai = 0; ai < 4 && ai < p.armor.length; ai++) {
-            if (ai > 0) armorStr += ', ';
-            var piece = p.armor[ai];
-            armorStr += armorLabels[ai] + ': ' + (piece ? formatItemName(piece) : 'none');
-        }
-    } else {
-        armorStr = 'no data';
-    }
-    document.getElementById('info-armor').textContent = armorStr;
+function renderChat(replay) {
 
-    document.getElementById('info-effects').textContent = (p.effects || []).join(', ') || 'None';
-}
+    const panel =
+        $("chat-panel");
 
-function formatItemName(name) {
-    if (!name || name === 'AIR') return 'none';
-    var parts = name.split('_');
-    var formatted = parts.map(function(w) {
-        return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-    }).join(' ');
-    return formatted;
-}
+    panel.innerHTML = "";
 
-function updatePlayersListPosition(frame) {
-    const entries = document.querySelectorAll('#players-container .player-entry');
-    const uuids = Object.keys(frame.players);
-    entries.forEach(function(entry, i) {
-        if (i < uuids.length) {
-            const p = frame.players[uuids[i]];
-            const posEl = entry.querySelector('.player-pos');
-            if (posEl) posEl.textContent = 'X:' + p.x.toFixed(1) + ' Y:' + p.y.toFixed(1) + ' Z:' + p.z.toFixed(1);
-        }
-    });
-}
 
-function updateTimeline() {
-    if (!replayData) return;
-    const el = document.getElementById('timeline');
-    el.value = currentFrame;
+    const messages =
+        Array.isArray(replay.chat)
+            ? replay.chat
+            : [];
 
-    const totalSeconds = replayData.frames.length / 20;
-    const currentSeconds = currentFrame / 20;
 
-    const curMin = Math.floor(currentSeconds / 60);
-    const curSec = Math.floor(currentSeconds % 60);
-    const totMin = Math.floor(totalSeconds / 60);
-    const totSec = Math.floor(totalSeconds % 60);
+    for (const message of messages) {
 
-    document.getElementById('time-label').textContent =
-        curMin + ':' + curSec.toString().padStart(2, '0') + ' / ' + totMin + ':' + totSec.toString().padStart(2, '0');
-}
+        const row =
+            document.createElement("div");
 
-function togglePlay() {
-    isPlaying = !isPlaying;
-    document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
-    if (isPlaying) clock.getDelta();
-}
+        row.className =
+            "chat-msg";
 
-function skipBack() {
-    if (!replayData) return;
-    currentFrame = Math.max(0, currentFrame - 100);
-    updateTimeline();
-    renderFrame(currentFrame);
-}
 
-function skipForward() {
-    if (!replayData) return;
-    currentFrame = Math.min(replayData.frames.length - 1, currentFrame + 100);
-    updateTimeline();
-    renderFrame(currentFrame);
-}
+        const player =
+            document.createElement("span");
 
-function changeSpeed(dir) {
-    var speeds = [0.25, 0.5, 1.0, 2.0, 4.0, 8.0];
-    var idx = speeds.indexOf(playSpeed);
-    if (idx === -1) idx = 2;
-    idx = Math.max(0, Math.min(speeds.length - 1, idx + dir));
-    playSpeed = speeds[idx];
-    document.getElementById('speed-label').textContent = playSpeed + 'x';
-}
+        player.className =
+            "chat-player";
 
-function toggleFollow() {
-    followTarget = !followTarget;
-    document.getElementById('follow-btn').classList.toggle('active', followTarget);
-}
+        player.textContent =
+            message.player ||
+            message.name ||
+            "Server";
 
-function resetCamera() {
-    if (playerMeshes[selectedPlayer]) {
-        const pos = playerMeshes[selectedPlayer].position;
-        camera.position.set(pos.x + 10, pos.y + 5, pos.z + 10);
-        controls.target.copy(pos);
-        controls.update();
+
+        const text =
+            document.createElement("span");
+
+        text.className =
+            "chat-text";
+
+        text.textContent =
+            `: ${message.text || ""}`;
+
+
+        row.append(
+            player,
+            text
+        );
+
+
+        panel.appendChild(
+            row
+        );
     }
 }
 
-function toggleNames() {
-    showNames = !showNames;
-    document.getElementById('names-btn').classList.toggle('active', showNames);
-}
 
-function toggleBlockChanges() {
-    showBlockChanges = !showBlockChanges;
-    document.getElementById('blocks-btn').classList.toggle('active', showBlockChanges);
-}
-function toggleTrail() {
-    showTrail = !showTrail;
-    document.getElementById('trail-btn').classList.toggle('active', showTrail);
-}
+/* ================================================================
+   REPLAY UI
+================================================================ */
 
-function updateSky(worldTime) {
-    if (worldTime === undefined) return;
-    const t = ((worldTime % 24000) + 24000) % 24000 / 24000;
-    const angle = t * Math.PI * 2;
-    const sunHeight = Math.sin(angle);
+function updateReplayUI() {
 
-    dirLight.position.set(Math.cos(angle) * 200, sunHeight * 200, 0);
-    dirLight.intensity = Math.max(0.05, sunHeight * 0.4 + 0.4);
+    $("time-label").textContent =
+        `${formatTime(state.currentTime)} / ${formatTime(state.duration)}`;
 
-    const day = new THREE.Color(0x87CEEB);
-    const dusk = new THREE.Color(0xCC5500);
-    const night = new THREE.Color(0x050510);
 
-    let skyColor;
-    if (t < 0.03) {
-        const p = t / 0.03;
-        skyColor = night.clone().lerp(dusk, p);
-    } else if (t < 0.05) {
-        const p = (t - 0.03) / 0.02;
-        skyColor = dusk.clone().lerp(day, p);
-    } else if (t < 0.45) {
-        skyColor = day.clone();
-    } else if (t < 0.48) {
-        const p = (t - 0.45) / 0.03;
-        skyColor = day.clone().lerp(dusk, p);
-    } else if (t < 0.54) {
-        const p = (t - 0.48) / 0.06;
-        skyColor = dusk.clone().lerp(night, p);
-    } else if (t < 0.96) {
-        skyColor = night.clone();
-    } else {
-        const p = (t - 0.96) / 0.04;
-        skyColor = night.clone().lerp(dusk, p);
-    }
+    $("timeline").value =
+        state.currentTime;
 
-    scene.background = skyColor;
-    if (scene.fog) scene.fog.color.copy(skyColor);
-    ambientLight.intensity = Math.max(0.15, Math.abs(sunHeight) * 0.5 + 0.1 + (sunHeight > 0 ? 0.4 : 0));
-}
 
-async function loadSkin(uuid, name) {
-    if (skinTextures[uuid]) return;
-    var cacheKey = 'skin_' + uuid;
-    var cached = localStorage.getItem(cacheKey);
-    if (cached) {
-        var tex = new THREE.TextureLoader().load(cached, function() {
-            if (tex.image) skinDimensions[uuid] = { w: tex.image.width, h: tex.image.height };
-        });
-        skinTextures[uuid] = tex;
+    $("speed-label").textContent =
+        `${state.speed.toFixed(1)}x`;
+
+
+    $("play-btn").textContent =
+        state.playing
+            ? "⏸"
+            : "▶";
+
+
+    const entry =
+        state.players.get(
+            state.selectedPlayer
+        );
+
+
+    if (!entry) {
         return;
     }
-    try {
-        var resp = await fetch('https://sessionserver.mojang.com/session/minecraft/profile/' + uuid);
-        if (!resp.ok) { console.log('[FullPlay] Skin API returned ' + resp.status + ' for ' + name); return; }
-        var data = await resp.json();
-        var prop = data.properties && data.properties.find(function(p) { return p.name === 'textures'; });
-        if (!prop) { console.log('[FullPlay] No textures property for ' + name); return; }
-        var decoded = JSON.parse(atob(prop.value));
-        var skinUrl = decoded.textures && decoded.textures.SKIN && decoded.textures.SKIN.url;
-        if (!skinUrl) { console.log('[FullPlay] No skin URL for ' + name); return; }
-        var httpsUrl = skinUrl.replace('http://', 'https://');
-        var tex = new THREE.TextureLoader().load(httpsUrl, function() {
-            if (tex.image) skinDimensions[uuid] = { w: tex.image.width, h: tex.image.height };
+
+
+    const data =
+        entry.data;
+
+
+    const sample =
+        getPlayerStateAt(
+            data,
+            state.currentTime
+        );
+
+
+    $("player-label").textContent =
+        data.name || "-";
+
+
+    $("info-title").textContent =
+        `${data.name || "Player"} Info`;
+
+
+    $("info-world").textContent =
+        data.world ||
+        data.dimension ||
+        "-";
+
+
+    $("info-mctime").textContent =
+        Math.floor(
+            state.currentTime
+        );
+
+
+    $("info-pos").textContent =
+        `${sample.x.toFixed(2)}, ` +
+        `${sample.y.toFixed(2)}, ` +
+        `${sample.z.toFixed(2)}`;
+
+
+    const velocity =
+        sample.velocity || {};
+
+
+    $("info-vel").textContent =
+        `${Number(velocity.x || 0).toFixed(2)}, ` +
+        `${Number(velocity.y || 0).toFixed(2)}, ` +
+        `${Number(velocity.z || 0).toFixed(2)}`;
+
+
+    $("info-look").textContent =
+        `${Number(sample.yaw || 0).toFixed(1)}° / ` +
+        `${Number(sample.pitch || 0).toFixed(1)}°`;
+
+
+    $("info-hp").textContent =
+        sample.health;
+
+
+    $("info-food").textContent =
+        sample.food;
+
+
+    $("info-ground").textContent =
+        sample.ground
+            ? "Yes"
+            : "No";
+
+
+    $("info-gm").textContent =
+        sample.gamemode;
+
+
+    $("info-held").textContent =
+        sample.held;
+
+
+    const speed =
+        Math.sqrt(
+            Number(velocity.x || 0) ** 2 +
+            Number(velocity.y || 0) ** 2 +
+            Number(velocity.z || 0) ** 2
+        );
+
+
+    $("info-speed").textContent =
+        speed.toFixed(3);
+
+
+    $("info-armor").textContent =
+        data.armor
+            ? JSON.stringify(data.armor)
+            : "-";
+
+
+    $("info-effects").textContent =
+        Array.isArray(sample.effects)
+            ? sample.effects.join(", ") || "-"
+            : String(sample.effects || "-");
+
+
+    updatePlayerSelection();
+}
+
+
+/* ================================================================
+   PLAYBACK
+================================================================ */
+
+window.togglePlay = function() {
+
+    if (!state.loaded) {
+        return;
+    }
+
+    state.playing =
+        !state.playing;
+
+    updateReplayUI();
+};
+
+
+window.skipBack = function() {
+
+    state.currentTime =
+        clamp(
+            state.currentTime - 5,
+            0,
+            state.duration
+        );
+
+    updateReplayUI();
+};
+
+
+window.skipForward = function() {
+
+    state.currentTime =
+        clamp(
+            state.currentTime + 5,
+            0,
+            state.duration
+        );
+
+    updateReplayUI();
+};
+
+
+window.changeSpeed = function(direction) {
+
+    const speeds =
+        [
+            .25,
+            .5,
+            .75,
+            1,
+            1.25,
+            1.5,
+            2,
+            4,
+            8
+        ];
+
+
+    let index =
+        speeds.indexOf(
+            state.speed
+        );
+
+
+    if (index === -1) {
+        index = 3;
+    }
+
+
+    index =
+        clamp(
+            index + direction,
+            0,
+            speeds.length - 1
+        );
+
+
+    state.speed =
+        speeds[index];
+
+
+    updateReplayUI();
+};
+
+
+/* ================================================================
+   CAMERA
+================================================================ */
+
+window.toggleFollow = function() {
+
+    state.follow =
+        !state.follow;
+
+    $("follow-btn")
+        .classList.toggle(
+            "active",
+            state.follow
+        );
+};
+
+
+window.resetCamera = function() {
+
+    camera.position.set(
+        10,
+        7,
+        10
+    );
+
+    controls.target.set(
+        0,
+        0,
+        0
+    );
+
+    controls.update();
+};
+
+
+function updateCamera() {
+
+    if (
+        !state.follow ||
+        !state.selectedPlayer
+    ) {
+        return;
+    }
+
+
+    const entry =
+        state.players.get(
+            state.selectedPlayer
+        );
+
+
+    if (!entry) {
+        return;
+    }
+
+
+    const sample =
+        getPlayerStateAt(
+            entry.data,
+            state.currentTime
+        );
+
+
+    const target =
+        new THREE.Vector3(
+            sample.x,
+            sample.y + 1,
+            sample.z
+        );
+
+
+    state.cameraTarget.lerp(
+        target,
+        .15
+    );
+
+
+    const direction =
+        new THREE.Vector3(
+            Math.sin(
+                THREE.MathUtils.degToRad(
+                    sample.yaw
+                )
+            ),
+            0,
+            Math.cos(
+                THREE.MathUtils.degToRad(
+                    sample.yaw
+                )
+            )
+        );
+
+
+    const desired =
+        target.clone()
+            .addScaledVector(
+                direction,
+                -CONFIG.cameraDistance
+            );
+
+
+    desired.y +=
+        CONFIG.cameraHeight;
+
+
+    camera.position.lerp(
+        desired,
+        .08
+    );
+
+
+    controls.target.lerp(
+        target,
+        .15
+    );
+}
+
+
+/* ================================================================
+   PLAYER UPDATE
+================================================================ */
+
+function updatePlayers() {
+
+    for (const [id, entry] of state.players) {
+
+        const sample =
+            getPlayerStateAt(
+                entry.data,
+                state.currentTime
+            );
+
+
+        entry.object.position.set(
+            sample.x,
+            sample.y,
+            sample.z
+        );
+
+
+        entry.object.rotation.y =
+            THREE.MathUtils.degToRad(
+                -sample.yaw
+            );
+
+
+        entry.object.visible =
+            true;
+    }
+}
+
+
+/* ================================================================
+   TRAIL
+================================================================ */
+
+function updateTrail() {
+
+    if (!state.trail) {
+        trailGroup.visible = false;
+        return;
+    }
+
+    trailGroup.visible = true;
+
+
+    clearGroup(
+        trailGroup
+    );
+
+
+    const entry =
+        state.players.get(
+            state.selectedPlayer
+        );
+
+
+    if (!entry) {
+        return;
+    }
+
+
+    const frames =
+        entry.data.frames ||
+        entry.data.timeline ||
+        entry.data.states;
+
+
+    if (!Array.isArray(frames)) {
+        return;
+    }
+
+
+    const points = [];
+
+
+    for (const frame of frames) {
+
+        const position =
+            frame.position || frame;
+
+
+        const t =
+            Number(
+                frame.time ??
+                frame.t ??
+                0
+            );
+
+
+        if (t > state.currentTime) {
+            break;
+        }
+
+
+        points.push(
+            new THREE.Vector3(
+                Number(position.x || 0),
+                Number(position.y || 0) + .05,
+                Number(position.z || 0)
+            )
+        );
+    }
+
+
+    if (points.length < 2) {
+        return;
+    }
+
+
+    const geometry =
+        new THREE.BufferGeometry()
+            .setFromPoints(points);
+
+
+    const material =
+        new THREE.LineBasicMaterial({
+            color: 0x00d6ff,
+            transparent: true,
+            opacity: .65
         });
-        skinTextures[uuid] = tex;
-        try { localStorage.setItem(cacheKey, httpsUrl); } catch (e) {}
-    } catch (e) {
-        console.log('[FullPlay] Skin load failed for ' + name + ': ' + e.message);
-    }
+
+
+    const line =
+        new THREE.Line(
+            geometry,
+            material
+        );
+
+
+    trailGroup.add(line);
 }
 
-function loadAllSkins() {
-    if (!replayData || !replayData.frames.length) return;
-    const seen = {};
-    for (const f of replayData.frames.slice(0, Math.min(20, replayData.frames.length))) {
-        for (const [uuid, p] of Object.entries(f.players)) {
-            if (!seen[uuid] && uuid !== primaryPlayer) {
-                seen[uuid] = true;
-                loadSkin(uuid, p.name);
-            }
+
+/* ================================================================
+   TOGGLES
+================================================================ */
+
+window.toggleNames = function() {
+
+    state.names =
+        !state.names;
+
+    $("names-btn")
+        .classList.toggle(
+            "active",
+            state.names
+        );
+};
+
+
+window.toggleBlockChanges = function() {
+
+    state.blocks =
+        !state.blocks;
+
+    $("blocks-btn")
+        .classList.toggle(
+            "active",
+            state.blocks
+        );
+};
+
+
+window.toggleTrail = function() {
+
+    state.trail =
+        !state.trail;
+
+    $("trail-btn")
+        .classList.toggle(
+            "active",
+            state.trail
+        );
+};
+
+
+/* ================================================================
+   TIMELINE
+================================================================ */
+
+$("timeline").addEventListener(
+    "input",
+    event => {
+
+        state.currentTime =
+            Number(
+                event.target.value
+            );
+
+        updateReplayUI();
+    }
+);
+
+
+/* ================================================================
+   KEYBOARD
+================================================================ */
+
+window.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.target.tagName ===
+            "INPUT"
+        ) {
+            return;
+        }
+
+
+        if (event.code === "Space") {
+
+            event.preventDefault();
+
+            togglePlay();
+        }
+
+
+        if (event.code === "ArrowLeft") {
+            skipBack();
+        }
+
+
+        if (event.code === "ArrowRight") {
+            skipForward();
         }
     }
-    // Load primary player too
-    const firstFrame = replayData.frames[0];
-    if (firstFrame.players[primaryPlayer]) {
-        loadSkin(primaryPlayer, firstFrame.players[primaryPlayer].name);
-    }
-}
+);
 
-document.getElementById('timeline').addEventListener('input', function() {
-    currentFrame = parseInt(this.value);
-    isPlaying = false;
-    document.getElementById('play-btn').textContent = '▶';
-    renderFrame(currentFrame);
-    updateTimeline();
-});
 
-function esc(s) {
-    if (!s) return '';
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
+/* ================================================================
+   ANIMATION
+================================================================ */
 
-init3D();
+let lastFrame =
+    performance.now();
 
-var raycaster = new THREE.Raycaster();
-var mouse = new THREE.Vector2();
-var lastMouseX = 0, lastMouseY = 0;
-var hoveredBlock = null;
-var blockTooltip = document.getElementById('block-tooltip');
 
-renderer.domElement.addEventListener('mousemove', function(event) {
-    var rect = renderer.domElement.getBoundingClientRect();
-    lastMouseX = event.clientX;
-    lastMouseY = event.clientY;
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-});
+function animationLoop(now) {
 
-renderer.domElement.addEventListener('click', function() {
-    if (hoveredBlock) {
-        var pos = hoveredBlock.position;
-        camera.position.set(pos.x + 5, pos.y + 3, pos.z + 5);
-        controls.target.copy(pos);
-        controls.update();
-        return;
-    }
-    var huuid = (function() {
-        if (!playerMeshes) return null;
-        var vec = new THREE.Vector3(), best = null, bestD2 = 900;
-        for (var puuid in playerMeshes) {
-            vec.copy(playerMeshes[puuid].position);
-            vec.project(camera);
-            var sx = (vec.x * 0.5 + 0.5) * renderer.domElement.clientWidth;
-            var sy = (-vec.y * 0.5 + 0.5) * renderer.domElement.clientHeight;
-            var dx = lastMouseX - sx, dy = lastMouseY - sy;
-            var d2 = dx * dx + dy * dy;
-            if (d2 < bestD2) { bestD2 = d2; best = puuid; }
+    requestAnimationFrame(
+        animationLoop
+    );
+
+
+    const delta =
+        Math.min(
+            .1,
+            (now - lastFrame) / 1000
+        );
+
+
+    lastFrame = now;
+
+
+    if (
+        state.loaded &&
+        state.playing
+    ) {
+
+        state.currentTime +=
+            delta * state.speed;
+
+
+        if (
+            state.currentTime >=
+            state.duration
+        ) {
+
+            state.currentTime =
+                state.duration;
+
+            state.playing =
+                false;
         }
-        return best;
-    })();
-    if (huuid) { selectedPlayer = huuid; updatePlayersList(); }
-});
 
-function updateBlockHover() {
-    if (!replayData || blockMeshes.length === 0) {
-        blockTooltip.style.display = 'none';
-        return;
+
+        updateReplayUI();
     }
-    raycaster.setFromCamera(mouse, camera);
-    var intersects = raycaster.intersectObjects(blockMeshes);
-    if (intersects.length > 0 && intersects[0].instanceId !== undefined) {
-        var mesh = intersects[0].object;
-        var idx = intersects[0].instanceId;
-        var dummy = new THREE.Object3D();
-        mesh.getMatrixAt(idx, dummy.matrix);
-        dummy.matrix.decompose(dummy.position, dummy.quaternion, dummy.scale);
-        var bp = dummy.position;
-        var colorHex = mesh.material.color.getHex();
-        hoveredBlock = { position: bp.clone() };
-        blockTooltip.style.display = 'block';
-        blockTooltip.innerHTML = 'Block: ' +
-            Math.round(bp.x) + ', ' +
-            Math.round(bp.y) + ', ' +
-            Math.round(bp.z) +
-            ' <span style="color:#888">| #' + colorHex.toString(16).padStart(6, '0') + '</span>';
-    } else {
-        blockTooltip.style.display = 'none';
-        hoveredBlock = null;
+
+
+    if (state.loaded) {
+
+        updatePlayers();
+        updateCamera();
+        updateTrail();
     }
+
+
+    controls.update();
+
+    renderer.render(
+        scene,
+        camera
+    );
 }
 
-var hashToken = getTokenFromHash();
-if (hashToken) {
-    document.getElementById('token-field').value = hashToken;
-    loadReplay();
-}
+
+/* ================================================================
+   RESIZE
+================================================================ */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        camera.aspect =
+            window.innerWidth /
+            window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+
+        renderer.setPixelRatio(
+            Math.min(
+                window.devicePixelRatio || 1,
+                CONFIG.maxPixelRatio
+            )
+        );
+    }
+);
+
+
+/* ================================================================
+   INITIAL RENDER
+================================================================ */
+
+renderer.render(
+    scene,
+    camera
+);
+
 </script>
 
 </body>
 </html>
+```
