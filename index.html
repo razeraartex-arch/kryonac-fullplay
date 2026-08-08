@@ -388,10 +388,13 @@ function glowTexture(c1,c2){
 /* ============ CHUNKS ============ */
 function decodeChunks(lst){
   st.chunkMap={};
-  for(var i=0;i<lst.length;i++){
+  var maxChunks=500,maxY=256;
+  for(var i=0;i<lst.length&&Object.keys(st.chunkMap).length<maxChunks;i++){
     var c=lst[i];if(!c)continue;
+    if(c.cx==null||c.cz==null)continue;
     var yoff=Math.floor(num(c.yOff)),yr=Math.floor(num(c.yRange))||256;
     if(yr<1||yr>512)yr=256;
+    if(yr>maxY)yr=maxY;
     var data=c.blocks,arr=new Int16Array(16*yr*16),j;
     if(data&&data.length){
       if(typeof data[0]==="number"){
@@ -400,12 +403,13 @@ function decodeChunks(lst){
         for(j=0;j<data.length;j++){
           var s=String(data[j]),p=s.split(":");
           if(p.length===2){var ix=parseInt(p[0],10),id=parseInt(p[1],10)&0x7fff;
-            if(ix>=0&&ix<arr.length)arr[ix]=id;}
+            if(!isNaN(ix)&&!isNaN(id)&&ix>=0&&ix<arr.length)arr[ix]=id;}
         }
       }
     }
     st.chunkMap[c.cx+","+c.cz]={cx:c.cx,cz:c.cz,yOff:yoff,yr:yr,data:arr};
   }
+  console.log("[FullPlay] Decoded "+Object.keys(st.chunkMap).length+"/"+lst.length+" chunks (max "+maxChunks+", max height "+maxY+")");
 }
 function ck(x,z){return st.chunkMap[x+","+z];}
 function wb(x,y,z){
@@ -457,18 +461,35 @@ function buildChunkMesh(c){
 }
 function buildWorldAsync(cb){
   var keys=Object.keys(st.chunkMap),idx=0;
+  var errors=0;
   var step=function(){
-    var t0=performance.now();
-    while(idx<keys.length&&performance.now()-t0<12){
-      var m=buildChunkMesh(st.chunkMap[keys[idx]]);
-      if(m)gWorld.add(m);
-      idx++;
+    try{
+      var t0=performance.now();
+      while(idx<keys.length&&performance.now()-t0<25){
+        try{
+          var m=buildChunkMesh(st.chunkMap[keys[idx]]);
+          if(m)gWorld.add(m);
+        }catch(e){
+          errors++;
+          console.warn("[FullPlay] Chunk build error:",keys[idx],e);
+        }
+        idx++;
+      }
+      boot(8+84*idx/max(keys.length,1),"Terraforming "+idx+"/"+keys.length+(errors?" ("+errors+" errors)":""));
+      if(idx<keys.length){setTimeout(step,1);}
+      else{
+        if(errors)console.warn("[FullPlay] "+errors+" chunks failed to build");
+        boot(94,"Placing players...");
+        try{if(cb)cb();}
+        catch(e){boot(0,"Error placing players: "+e.message);console.error(e);}
+      }
+    }catch(e){
+      boot(0,"World build failed: "+e.message);
+      console.error("[FullPlay] buildWorldAsync fatal:",e);
+      toast("Build error: "+e.message,"err");
     }
-    boot(8+84*idx/max(keys.length,1),"Terraforming "+idx+"/"+keys.length);
-    if(idx<keys.length){requestAnimationFrame(step);}
-    else{boot(94,"Placing players...");if(cb)cb();}
   };
-  requestAnimationFrame(step);
+  setTimeout(step,1);
 }
 /* ============ PLAYER MODELS ============ */
 function uuidColor(uuid){
@@ -581,9 +602,17 @@ function loadData(){
   $("#loadHint").innerHTML="";
   startLoad(tok);
 }
+var loadTimeout=null;
 function startLoad(tok){
   showLoading();
   boot(2,"Fetching replay "+tok+" ...");
+  if(loadTimeout)clearTimeout(loadTimeout);
+  loadTimeout=setTimeout(function(){
+    if($("#loading").style.display!=="none"){
+      boot(0,"Loading timed out. Check console (F12).");
+      toast("Load timeout - check console","err");
+    }
+  },30000);
   tryLocal(tok);
 }
 function tryLocal(tok){
@@ -672,34 +701,49 @@ function onJson(j,tok){
   st.chatList=[];buildChatList();
   boot(4,"Decoding chunks...");
   decodeChunks(j.chunks||[]);
-  boot(6,"Ready to build world.");
-  buildWorldAsync(onWorldReady);
+    boot(6,"Ready to build world.");
+    $("#loadHint").innerHTML="<button class='mcbtn' style='margin-top:8px;padding:4px 12px;font-size:11px' id='btnSkipWorld'>Skip world rendering</button>";
+    setTimeout(function(){
+      var btn=document.getElementById("btnSkipWorld");
+      if(btn)btn.onclick=function(){
+        boot(94,"Placing players...");
+        try{onWorldReady();}catch(e){boot(0,"Error: "+e.message);}
+      };
+    },50);
+    buildWorldAsync(onWorldReady);
 }
 function onWorldReady(){
-  boot(96,"Spawning players...");
-  var ids=collectUuids();
-  orderIds=ids.filter(function(u,i){return ids.indexOf(u)===i;});
-  orderIds.forEach(function(u){
-    makePlayerMesh(u,playerNameOf(u),null);
-  });
-  var texCount=0;
-  orderIds.forEach(function(u){
-    loadSkinTex(u,function(){
-      var m=playerMeshes[u];if(!m)return;
-      var tex=skinCache[u];
-      m.userData.parts.head.material=new THREE.MeshBasicMaterial({map:tex});
-      m.userData.parts.torso.material=new THREE.MeshBasicMaterial({map:tex});
+  try{
+    boot(96,"Spawning players...");
+    var ids=collectUuids();
+    orderIds=ids.filter(function(u,i){return ids.indexOf(u)===i;});
+    orderIds.forEach(function(u){
+      makePlayerMesh(u,playerNameOf(u),null);
     });
-  });
-  if(orderIds.length)follow=orderIds[0];
-  curTick=st.tick0;
-  lastEvt=0;lastChatN=0;lastProj=0;lastFrame=-1;
-  placeCameraFirst();
-  boot(100,"Ready");
-  hideLoading();
-  $("#timeTotal").textContent=fmtT((st.tick1-st.tick0)/FPS);
-  fillPlayerPane();fillInfoPane();
-  toast("Replay loaded ("+orderIds.length+" players, "+st.frames.length+" frames)");
+    var texCount=0;
+    orderIds.forEach(function(u){
+      loadSkinTex(u,function(){
+        var m=playerMeshes[u];if(!m)return;
+        var tex=skinCache[u];
+        m.userData.parts.head.material=new THREE.MeshBasicMaterial({map:tex});
+        m.userData.parts.torso.material=new THREE.MeshBasicMaterial({map:tex});
+      });
+    });
+    if(orderIds.length)follow=orderIds[0];
+    curTick=st.tick0;
+    lastEvt=0;lastChatN=0;lastProj=0;lastFrame=-1;
+    placeCameraFirst();
+    boot(100,"Ready");
+    if(loadTimeout)clearTimeout(loadTimeout);
+    hideLoading();
+    $("#timeTotal").textContent=fmtT((st.tick1-st.tick0)/FPS);
+    fillPlayerPane();fillInfoPane();
+    toast("Replay loaded ("+orderIds.length+" players, "+st.frames.length+" frames)");
+  }catch(e){
+    boot(0,"Error spawning players: "+e.message);
+    console.error("[FullPlay] onWorldReady error:",e);
+    toast("Spawn error: "+e.message,"err");
+  }
 }
 function placeCameraFirst(){
   var f=st.frames[0];if(!f)return;
