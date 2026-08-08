@@ -474,10 +474,8 @@ function decodeChunks(lst){
     var chunkObj={cx:c.cx,cz:c.cz,yOff:yoff,yr:yr,data:arr,wn:wn};
     if(!st.allChunks[wn])st.allChunks[wn]={};
     st.allChunks[wn][c.cx+","+c.cz]=chunkObj;
-    if(targetWorld&&wn===targetWorld){
-      if(Object.keys(st.chunkMap).length<maxChunks)
-        st.chunkMap[c.cx+","+c.cz]=chunkObj;
-    }else if(!targetWorld){
+    var belongsToTarget=!wn||wn===targetWorld||!targetWorld;
+    if(belongsToTarget){
       if(Object.keys(st.chunkMap).length<maxChunks)
         st.chunkMap[c.cx+","+c.cz]=chunkObj;
     }else{
